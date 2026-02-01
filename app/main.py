@@ -79,6 +79,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                 message = json.loads(data)
                 # print(f"WS Message from {player.name}: {message}")
                 await handle_message(db, token, player, message)
+            except WebSocketDisconnect:
+                raise
             except json.JSONDecodeError:
                 await manager.send_personal(token, {
                     "type": "error",
