@@ -15,11 +15,14 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[token] = websocket
         self.token_to_player[token] = player_id
+        print(f"Manager: Connected player {player_id} with token {token[:8]}...")
 
     def disconnect(self, token: str):
         """Remove a WebSocket connection."""
+        player_id = self.token_to_player.get(token)
         self.active_connections.pop(token, None)
         self.token_to_player.pop(token, None)
+        print(f"Manager: Disconnected player {player_id} with token {token[:8]}...")
 
     def get_player_id(self, token: str) -> Optional[int]:
         """Get player_id from token."""
