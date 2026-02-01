@@ -19,47 +19,30 @@ from app.services.persistence import (
     import_session,
     validate_import_data,
 )
+from app.core.auth import get_current_player
 
 router = APIRouter()
 
 
-def get_gm_player(token: str, db: DBSession) -> Player:
-    """Получить игрока по токену и проверить что это GM."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    if not player.is_gm:
-        raise HTTPException(
-            status_code=403,
-            detail="Only GM can perform this action"
-        )
-    return player
-
-
-def get_player_by_token(token: str, db: DBSession) -> Player:
-    """Получить игрока по токену."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return player
 
 
 @router.post("/session/export", response_model=ExportResponse)
 def export_session_endpoint(
-    token: str,
     request: ExportRequest = ExportRequest(),
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db),
 ):
     """Экспортировать текущую сессию в JSON.
 
     Только для GM.
     """
-    player = get_gm_player(token, db)
+    if not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Only GM can perform this action")
 
     try:
         data = export_session(
             db=db,
-            session_id=player.session_id,
+            session_id=current_player.session_id,
             include_combat=request.include_combat,
         )
         return ExportResponse(success=True, data=data)
@@ -69,20 +52,21 @@ def export_session_endpoint(
 
 @router.post("/session/export/download")
 def export_session_download(
-    token: str,
     request: ExportRequest = ExportRequest(),
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db),
 ):
     """Скачать экспорт сессии как JSON файл.
 
     Только для GM.
     """
-    player = get_gm_player(token, db)
+    if not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Only GM can perform this action")
 
     try:
         data = export_session(
             db=db,
-            session_id=player.session_id,
+            session_id=current_player.session_id,
             include_combat=request.include_combat,
         )
 

@@ -23,16 +23,11 @@ from app.core.class_templates import (
     ClassTemplate,
 )
 from app.websocket.manager import manager
+from app.core.auth import get_current_player
 
 router = APIRouter()
 
 
-def get_player_by_token(token: str, db: DBSession) -> Player:
-    """Получить игрока по токену."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return player
 
 
 def template_to_response(template: ClassTemplate) -> ClassTemplateResponse:
@@ -104,7 +99,7 @@ def get_class_template(template_id: str):
 @router.post("/create", response_model=CharacterResponse)
 async def create_character_from_template(
     request: CreateFromTemplateRequest,
-    token: str,
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db),
 ):
     """Создать персонажа на основе шаблона класса.
@@ -112,8 +107,6 @@ async def create_character_from_template(
     Автоматически устанавливает характеристики, HP,
     и опционально добавляет стартовые предметы и заклинания.
     """
-    player = get_player_by_token(token, db)
-
     template = get_template(request.template_id)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -122,7 +115,7 @@ async def create_character_from_template(
     hp = template.calculate_hp(request.level)
 
     character = Character(
-        player_id=player.id,
+        player_id=current_player.id,
         name=request.name,
         class_name=template.name,
         level=request.level,
