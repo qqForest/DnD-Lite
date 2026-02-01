@@ -1,3 +1,16 @@
+2026-02-01: Система аутентификации JWT и улучшение API
+  - Backend: Реализована JWT аутентификация (Access & Refresh tokens)
+  - Backend: Добавлена зависимость python-jose и passlib
+  - Backend: Защищены все эндпоинты (session, characters, combat, dice, templates, persistence) через Bearer токены
+  - Backend: Добавлен эндпоинт /api/session/auth/refresh для обновления токенов
+  - Frontend: Реализованы Axios interceptors для автоматической вставки токенов и обновления при 401 ошибке
+  - Frontend: Обновлены Pinia сторы (session, characters, combat, dice) для работы с новой схемой авторизации
+  - Frontend: Убрана ручная передача токенов в методы API клиентов
+  - Документация: Создан файл docs/auth.md с описанием работы JWT системы
+  - Bugfix: Исправлены синтаксические ошибки и дублирование событий WebSocket в API эндпоинтах
+  - Bugfix: Исправлена ошибка "missing token" при создании персонажа из шаблона
+  - Bugfix: Исправлен роутинг SPA на сервере для корректной работы путей при деплое на VPS
+
 2026-02-01: Подготовка к деплою (Docker)
   - Создан Dockerfile для мульти-этапной сборки (frontend + backend)
   - Создан docker-compose.yml для запуска на VPS
