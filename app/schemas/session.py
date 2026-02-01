@@ -1,0 +1,45 @@
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+
+
+class SessionCreate(BaseModel):
+    pass
+
+
+class SessionResponse(BaseModel):
+    code: str
+    gm_token: str
+
+    class Config:
+        from_attributes = True
+
+
+class SessionJoin(BaseModel):
+    code: str
+    name: str
+
+
+class SessionJoinResponse(BaseModel):
+    player_id: int
+    token: str
+    session_code: str
+
+    class Config:
+        from_attributes = True
+
+
+class SessionState(BaseModel):
+    id: int
+    code: str
+    is_active: bool
+    session_started: bool
+    created_at: datetime
+    player_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlayerReadyRequest(BaseModel):
+    is_ready: bool
