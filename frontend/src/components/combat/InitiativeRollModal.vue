@@ -70,8 +70,8 @@ async function handleRoll() {
   isRolling.value = true
   
   try {
-    if (sessionStore.token) {
-      const result = await combatStore.rollInitiative(sessionStore.token)
+    if (sessionStore.isAuthenticated) {
+      const result = await combatStore.rollInitiative()
       localRollResult.value = result
       
       // Auto-close after 2 seconds

@@ -6,8 +6,11 @@ import { wsService } from '@/services/websocket'
 
 export const useSessionStore = defineStore('session', () => {
   const id = ref<number | null>(null)
+  const playerId = ref<number | null>(localStorage.getItem('playerId') ? parseInt(localStorage.getItem('playerId')!) : null)
   const code = ref<string | null>(null)
   const token = ref<string | null>(localStorage.getItem('token'))
+  const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
+  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
   const isGm = ref<boolean>(false)
   const players = ref<Player[]>([])
   const isConnected = ref<boolean>(false)
@@ -17,7 +20,7 @@ export const useSessionStore = defineStore('session', () => {
   const isAuthenticated = computed(() => !!token.value)
 
   const currentPlayer = computed(() => {
-    return players.value.find(p => p.is_gm === isGm.value)
+    return players.value.find(p => p.id === playerId.value)
   })
 
   const otherPlayers = computed(() => {
@@ -33,10 +36,25 @@ export const useSessionStore = defineStore('session', () => {
     code.value = response.code
     token.value = response.gm_token
     isGm.value = true
+    // GM player_id usually comes from fetching players, 
+    // but the backend doesn't return it in createSession yet.
+    // However, we can fetch players immediately.
+    // However, we can fetch players immediately.
     localStorage.setItem('token', response.gm_token)
+    localStorage.setItem('accessToken', response.access_token)
+    localStorage.setItem('refreshToken', response.refresh_token)
+    accessToken.value = response.access_token
+    refreshToken.value = response.refresh_token
+
     await connectWebSocket()
     await fetchSessionState()
     await fetchPlayers()
+
+    const gmPlayer = players.value.find(p => p.is_gm)
+    if (gmPlayer) {
+      playerId.value = gmPlayer.id
+      localStorage.setItem('playerId', gmPlayer.id.toString())
+    }
   }
 
   async function joinSession(sessionCode: string, name: string) {
@@ -46,8 +64,15 @@ export const useSessionStore = defineStore('session', () => {
     })
     token.value = response.token
     code.value = response.session_code
+    playerId.value = response.player_id
     isGm.value = false
     localStorage.setItem('token', response.token)
+    localStorage.setItem('accessToken', response.access_token)
+    localStorage.setItem('refreshToken', response.refresh_token)
+    localStorage.setItem('playerId', response.player_id.toString())
+    accessToken.value = response.access_token
+    refreshToken.value = response.refresh_token
+
     await connectWebSocket()
     await fetchSessionState()
     await fetchPlayers()
@@ -56,10 +81,14 @@ export const useSessionStore = defineStore('session', () => {
   async function fetchSessionState() {
     if (!token.value) return
     try {
-      sessionState.value = await sessionApi.getSessionState(token.value)
+      sessionState.value = await sessionApi.getSessionState()
       id.value = sessionState.value.id
       code.value = sessionState.value.code
       sessionStarted.value = sessionState.value.session_started
+      if (sessionState.value.player_id) {
+        playerId.value = sessionState.value.player_id
+        localStorage.setItem('playerId', playerId.value.toString())
+      }
     } catch (error) {
       console.error('Failed to fetch session state:', error)
     }
@@ -70,7 +99,7 @@ export const useSessionStore = defineStore('session', () => {
     if (!isGm.value) throw new Error('Only GM can start session')
 
     try {
-      await sessionApi.startSession(token.value)
+      await sessionApi.startSession()
       sessionStarted.value = true
       if (sessionState.value) {
         sessionState.value.session_started = true
@@ -84,7 +113,7 @@ export const useSessionStore = defineStore('session', () => {
   async function fetchPlayers() {
     if (!token.value) return
     try {
-      players.value = await sessionApi.getPlayers(token.value)
+      players.value = await sessionApi.getPlayers()
     } catch (error) {
       console.error('Failed to fetch players:', error)
     }
@@ -95,7 +124,7 @@ export const useSessionStore = defineStore('session', () => {
     if (isGm.value) throw new Error('GM cannot set ready status')
 
     try {
-      await sessionApi.setReady(isReady, token.value)
+      await sessionApi.setReady(isReady)
       // Обновляем локальное состояние
       if (currentPlayer.value) {
         currentPlayer.value.is_ready = isReady
@@ -162,6 +191,7 @@ export const useSessionStore = defineStore('session', () => {
 
   function clearSession() {
     id.value = null
+    playerId.value = null
     code.value = null
     token.value = null
     isGm.value = false
@@ -169,6 +199,11 @@ export const useSessionStore = defineStore('session', () => {
     isConnected.value = false
     sessionState.value = null
     localStorage.removeItem('token')
+    localStorage.removeItem('playerId')
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    accessToken.value = null
+    refreshToken.value = null
     wsService.disconnect()
   }
 

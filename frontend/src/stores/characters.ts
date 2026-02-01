@@ -24,7 +24,7 @@ export const useCharactersStore = defineStore('characters', () => {
 
     loading.value = true
     try {
-      characters.value = await charactersApi.list(sessionStore.token)
+      characters.value = await charactersApi.list()
     } catch (error) {
       console.error('Failed to fetch characters:', error)
     } finally {
@@ -37,7 +37,7 @@ export const useCharactersStore = defineStore('characters', () => {
     if (!sessionStore.token) return
 
     try {
-      const character = await charactersApi.get(characterId, sessionStore.token)
+      const character = await charactersApi.get(characterId)
       const index = characters.value.findIndex(c => c.id === characterId)
       if (index > -1) {
         characters.value[index] = character
@@ -56,7 +56,7 @@ export const useCharactersStore = defineStore('characters', () => {
     if (!sessionStore.token) throw new Error('Not authenticated')
 
     try {
-      const character = await charactersApi.create(data, sessionStore.token)
+      const character = await charactersApi.create(data)
       characters.value.push(character)
       return character
     } catch (error) {
@@ -70,7 +70,7 @@ export const useCharactersStore = defineStore('characters', () => {
     if (!sessionStore.token) throw new Error('Not authenticated')
 
     try {
-      const character = await templatesApi.createCharacter(data, sessionStore.token)
+      const character = await templatesApi.createCharacter(data)
       characters.value.push(character)
       return character
     } catch (error) {
@@ -84,7 +84,7 @@ export const useCharactersStore = defineStore('characters', () => {
     if (!sessionStore.token) throw new Error('Not authenticated')
 
     try {
-      const character = await charactersApi.update(characterId, data, sessionStore.token)
+      const character = await charactersApi.update(characterId, data)
       const index = characters.value.findIndex(c => c.id === characterId)
       if (index > -1) {
         characters.value[index] = character
@@ -101,7 +101,7 @@ export const useCharactersStore = defineStore('characters', () => {
     if (!sessionStore.token) throw new Error('Not authenticated')
 
     try {
-      await charactersApi.delete(characterId, sessionStore.token)
+      await charactersApi.delete(characterId)
       characters.value = characters.value.filter(c => c.id !== characterId)
       if (selectedId.value === characterId) {
         selectedId.value = null

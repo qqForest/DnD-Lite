@@ -5,11 +5,14 @@ export interface Session {
   session_started: boolean
   created_at: string
   player_count: number
+  player_id?: number
 }
 
 export interface SessionResponse {
   code: string
   gm_token: string
+  access_token: string
+  refresh_token: string
 }
 
 export interface SessionJoin {
@@ -21,6 +24,8 @@ export interface SessionJoinResponse {
   player_id: number
   token: string
   session_code: string
+  access_token: string
+  refresh_token: string
 }
 
 export interface Player {

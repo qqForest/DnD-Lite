@@ -67,10 +67,10 @@ onMounted(async () => {
     await charactersStore.fetchAll()
     
     // Check combat state and fetch initiative list
-    if (sessionStore.token) {
-      await combatStore.fetchCombatState(sessionStore.token)
+    if (sessionStore.isAuthenticated) {
+      await combatStore.fetchCombatState()
       if (combatStore.isActive) {
-        await combatStore.fetchInitiativeList(sessionStore.token)
+        await combatStore.fetchInitiativeList()
       }
     }
   } catch (error) {

@@ -83,8 +83,8 @@ onMounted(async () => {
     await charactersStore.fetchAll()
     
     // Check if combat is active
-    if (sessionStore.token) {
-      await combatStore.fetchCombatState(sessionStore.token)
+    if (sessionStore.isAuthenticated) {
+      await combatStore.fetchCombatState()
     }
   } catch (error) {
     console.error('Failed to load player data:', error)

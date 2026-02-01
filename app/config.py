@@ -5,6 +5,12 @@ from functools import lru_cache
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./dnd_lite.db"
     secret_key: str = "dev-secret-key-change-in-production"
+    
+    # JWT Settings
+    jwt_secret_key: str = "dev-jwt-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
 
     class Config:
         env_file = ".env"

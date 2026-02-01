@@ -26,28 +26,105 @@ const api: AxiosInstance = axios.create({
   }
 })
 
-// Add token to requests
+// Request interceptor: Attach Token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token && config.params) {
-    config.params.token = token
-  } else if (token) {
-    config.params = { token }
+  const token = localStorage.getItem('accessToken')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
 
-// Handle errors
+// Refresh Logic
+let isRefreshing = false
+let failedQueue: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = []
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
+// Response Interceptor: Handle 401
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/'
+  async (error: any) => {
+    const originalRequest = error.config
+
+    // Check if error is 401 and we haven't retried yet
+    // Also ignore 401 on login/refresh endpoints to avoid loops (though login is 200 usually)
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
+
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers.Authorization = 'Bearer ' + token
+          return api(originalRequest)
+        }).catch(err => {
+          return Promise.reject(err)
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (!refreshToken) {
+        // No refresh token, logout
+        logoutAndRedirect()
+        return Promise.reject(error)
+      }
+
+      try {
+        // Call refresh endpoint
+        // Start a new axios instance to avoid interceptors? Or just use axios directly.
+        // We need to send { access_token: "", refresh_token: ..., token_type: "bearer" }
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+        // Clean URL handling
+        const url = `${baseUrl.replace(/\/$/, '')}/session/auth/refresh`
+
+        const response = await axios.post(url, {
+          access_token: "",
+          refresh_token: refreshToken,
+          token_type: "bearer"
+        })
+
+        const { access_token, refresh_token: newRefresh } = response.data
+
+        localStorage.setItem('accessToken', access_token)
+        localStorage.setItem('refreshToken', newRefresh)
+
+        // Update headers
+        api.defaults.headers.common['Authorization'] = 'Bearer ' + access_token
+        originalRequest.headers.Authorization = 'Bearer ' + access_token
+
+        processQueue(null, access_token)
+        return api(originalRequest)
+      } catch (err) {
+        processQueue(err, null)
+        logoutAndRedirect()
+        return Promise.reject(err)
+      } finally {
+        isRefreshing = false
+      }
     }
     return Promise.reject(error)
   }
 )
+
+function logoutAndRedirect() {
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
+  localStorage.removeItem('token')
+  localStorage.removeItem('playerId')
+  window.location.href = '/'
+}
 
 // Session API
 export const sessionApi = {
@@ -61,94 +138,98 @@ export const sessionApi = {
     return response.data
   },
 
-  getSessionState: async (token: string): Promise<Session> => {
-    const response = await api.get<Session>('/session', { params: { token } })
+  getSessionState: async (): Promise<Session> => {
+    const response = await api.get<Session>('/session')
     return response.data
   },
 
-  getPlayers: async (token: string): Promise<Player[]> => {
-    const response = await api.get<Player[]>('/session/players', { params: { token } })
+  getPlayers: async (): Promise<Player[]> => {
+    const response = await api.get<Player[]>('/session/players')
     return response.data
   },
 
-  startSession: async (token: string): Promise<{ message: string; session_started: boolean }> => {
-    const response = await api.post<{ message: string; session_started: boolean }>('/session/start', null, { params: { token } })
+  startSession: async (): Promise<{ message: string; session_started: boolean }> => {
+    const response = await api.post<{ message: string; session_started: boolean }>('/session/start')
     return response.data
   },
 
-  setReady: async (isReady: boolean, token: string): Promise<{ message: string; is_ready: boolean }> => {
-    const response = await api.post<{ message: string; is_ready: boolean }>('/session/ready', { is_ready: isReady }, { params: { token } })
+  setReady: async (isReady: boolean): Promise<{ message: string; is_ready: boolean }> => {
+    const response = await api.post<{ message: string; is_ready: boolean }>('/session/ready', { is_ready: isReady })
     return response.data
   }
 }
 
 // Characters API
 export const charactersApi = {
-  list: async (token: string): Promise<Character[]> => {
-    const response = await api.get<Character[]>('/characters', { params: { token } })
+  list: async (): Promise<Character[]> => {
+    const response = await api.get<Character[]>('/characters')
     return response.data
   },
 
-  get: async (characterId: number, token: string): Promise<Character> => {
-    const response = await api.get<Character>(`/characters/${characterId}`, { params: { token } })
+  get: async (characterId: number): Promise<Character> => {
+    const response = await api.get<Character>(`/characters/${characterId}`)
     return response.data
   },
 
-  create: async (data: CharacterCreate, token: string): Promise<Character> => {
-    const response = await api.post<Character>('/characters', data, { params: { token } })
+  create: async (data: CharacterCreate): Promise<Character> => {
+    const response = await api.post<Character>('/characters', data)
     return response.data
   },
 
-  update: async (characterId: number, data: CharacterUpdate, token: string): Promise<Character> => {
-    const response = await api.patch<Character>(`/characters/${characterId}`, data, { params: { token } })
+  update: async (characterId: number, data: CharacterUpdate): Promise<Character> => {
+    const response = await api.patch<Character>(`/characters/${characterId}`, data)
     return response.data
   },
 
-  delete: async (characterId: number, token: string): Promise<void> => {
-    await api.delete(`/characters/${characterId}`, { params: { token } })
+  delete: async (characterId: number): Promise<void> => {
+    await api.delete(`/characters/${characterId}`)
   }
 }
 
 // Dice API
 export const diceApi = {
-  roll: async (data: DiceRoll, token: string): Promise<DiceResult> => {
-    const response = await api.post<DiceResult>('/dice/roll', data, { params: { token } })
+  roll: async (data: DiceRoll): Promise<DiceResult> => {
+    const response = await api.post<DiceResult>('/dice/roll', data)
     return response.data
   }
 }
 
 // Combat API
 export const combatApi = {
-  getState: async (token: string): Promise<Combat | { active: false }> => {
-    const response = await api.get<Combat | { active: false }>('/combat', { params: { token } })
+  getState: async (): Promise<Combat | { active: false }> => {
+    const response = await api.get<Combat | { active: false }>('/combat')
     return response.data
   },
 
-  start: async (characterIds: number[], token: string): Promise<Combat> => {
+  start: async (characterIds: number[]): Promise<Combat> => {
+    // characterIds is optional body or params? Old code used query params.
+    // Updated backend still supports character_ids as query param?
+    // Backend: async def start_combat(character_ids: Optional[List[int]] = None, ...)
+    // It's a query param mostly, or body if json. FastAPI differentiates by default. If list, usually query.
+    // Let's pass as query params manually.
     const params = new URLSearchParams()
     characterIds.forEach(id => params.append('character_ids', id.toString()))
-    params.append('token', token)
     const response = await api.post<Combat>(`/combat/start?${params.toString()}`)
     return response.data
   },
 
-  end: async (token: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/combat/end', null, { params: { token } })
+  end: async (): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/combat/end')
     return response.data
   },
 
-  nextTurn: async (token: string): Promise<{ participant_id: number; character_id: number; round_number: number }> => {
-    const response = await api.post('/combat/next-turn', null, { params: { token } })
+  nextTurn: async (): Promise<{ participant_id: number; character_id: number; round_number: number }> => {
+    const response = await api.post('/combat/next-turn')
     return response.data
   },
 
-  rollInitiative: async (token: string): Promise<InitiativeRollResponse> => {
-    const response = await api.post<InitiativeRollResponse>('/combat/initiative', null, { params: { token } })
+  rollInitiative: async (): Promise<InitiativeRollResponse> => {
+    const response = await api.post<InitiativeRollResponse>('/combat/initiative')
     return response.data
   },
 
-  getInitiativeList: async (token: string): Promise<InitiativeListResponse> => {
-    const response = await api.get<InitiativeListResponse>('/combat/initiative', { params: { token } })
+  getInitiativeList: async (): Promise<InitiativeListResponse> => {
+    const response = await api.get<InitiativeListResponse>('/combat/initiative')
     return response.data
   }
 }
@@ -165,22 +246,23 @@ export const templatesApi = {
     return response.data
   },
 
-  createCharacter: async (data: CreateFromTemplateRequest, token: string): Promise<Character> => {
-    const response = await api.post<Character>('/templates/create', data, { params: { token } })
+  createCharacter: async (data: CreateFromTemplateRequest): Promise<Character> => {
+    const response = await api.post<Character>('/templates/create', data)
     return response.data
   }
 }
 
 // Persistence API
 export const persistenceApi = {
-  exportSession: async (token: string, includeCombat: boolean = true): Promise<any> => {
-    const response = await api.post('/session/export', { include_combat: includeCombat }, { params: { token } })
+  exportSession: async (includeCombat: boolean = true): Promise<any> => {
+    const response = await api.post('/session/export', { include_combat: includeCombat })
     return response.data
   },
 
-  exportSessionDownload: async (token: string, includeCombat: boolean = true): Promise<Blob> => {
+  exportSessionDownload: async (includeCombat: boolean = true): Promise<Blob> => {
+    // For blob download, we must use axios with responseType blob.
+    // Interceptor will attach token.
     const response = await api.post('/session/export/download', { include_combat: includeCombat }, {
-      params: { token },
       responseType: 'blob'
     })
     return response.data

@@ -51,7 +51,7 @@ async function handleStartCombat() {
   
   isStarting.value = true
   try {
-    await combatStore.startCombat(sessionStore.token)
+    await combatStore.startCombat()
   } catch (error) {
     console.error('Failed to start combat:', error)
   } finally {
@@ -64,7 +64,7 @@ async function handleEndCombat() {
   
   isEnding.value = true
   try {
-    await combatStore.endCombat(sessionStore.token)
+    await combatStore.endCombat()
   } catch (error) {
     console.error('Failed to end combat:', error)
   } finally {

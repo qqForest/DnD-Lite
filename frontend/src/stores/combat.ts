@@ -21,26 +21,26 @@ export const useCombatStore = defineStore('combat', () => {
 
     const hasRolled = computed(() => myInitiativeRoll.value !== null)
 
-    async function startCombat(token: string) {
-        const response = await combatApi.start([], token)
+    async function startCombat() {
+        const response = await combatApi.start([])
         isActive.value = true
         combatId.value = response.id
         initiativeList.value = []
     }
 
-    async function endCombat(token: string) {
-        await combatApi.end(token)
+    async function endCombat() {
+        await combatApi.end()
         resetState()
     }
 
-    async function rollInitiative(token: string): Promise<number> {
+    async function rollInitiative(): Promise<number> {
         if (isRolling.value || hasRolled.value) {
             throw new Error('Already rolling or rolled')
         }
 
         isRolling.value = true
         try {
-            const response = await combatApi.rollInitiative(token)
+            const response = await combatApi.rollInitiative()
             myInitiativeRoll.value = response.roll
             return response.roll
         } finally {
@@ -48,13 +48,13 @@ export const useCombatStore = defineStore('combat', () => {
         }
     }
 
-    async function fetchInitiativeList(token: string) {
-        const response = await combatApi.getInitiativeList(token)
+    async function fetchInitiativeList() {
+        const response = await combatApi.getInitiativeList()
         initiativeList.value = response.entries
     }
 
-    async function fetchCombatState(token: string) {
-        const response = await combatApi.getState(token)
+    async function fetchCombatState() {
+        const response = await combatApi.getState()
         if ('active' in response && response.active === false) {
             isActive.value = false
             combatId.value = null

@@ -10,6 +10,8 @@ class SessionCreate(BaseModel):
 class SessionResponse(BaseModel):
     code: str
     gm_token: str
+    access_token: str
+    refresh_token: str
 
     class Config:
         from_attributes = True
@@ -24,6 +26,8 @@ class SessionJoinResponse(BaseModel):
     player_id: int
     token: str
     session_code: str
+    access_token: str
+    refresh_token: str
 
     class Config:
         from_attributes = True
@@ -36,6 +40,7 @@ class SessionState(BaseModel):
     session_started: bool
     created_at: datetime
     player_count: int
+    player_id: Optional[int] = None
 
     class Config:
         from_attributes = True

@@ -15,6 +15,8 @@ from app.schemas.session import (
     PlayerReadyRequest,
 )
 from app.schemas.player import PlayerResponse
+from app.core.auth import create_access_token, create_refresh_token, get_current_player
+from app.schemas.auth import Token
 
 router = APIRouter()
 
@@ -52,7 +54,15 @@ def create_session(db: DBSession = Depends(get_db)):
     db.add(gm_player)
     db.commit()
 
-    return SessionResponse(code=code, gm_token=gm_token)
+    access_token = create_access_token(data={"sub": gm_token})
+    refresh_token = create_refresh_token(data={"sub": gm_token})
+
+    return SessionResponse(
+        code=code, 
+        gm_token=gm_token,
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
 
 
 @router.post("/session/join", response_model=SessionJoinResponse)
@@ -86,21 +96,51 @@ def join_session(data: SessionJoin, db: DBSession = Depends(get_db)):
     db.commit()
     db.refresh(player)
 
+    access_token = create_access_token(data={"sub": player_token})
+    refresh_token = create_refresh_token(data={"sub": player_token})
+
     return SessionJoinResponse(
         player_id=player.id,
         token=player_token,
-        session_code=session.code
+        session_code=session.code,
+        access_token=access_token,
+        refresh_token=refresh_token
     )
 
 
-@router.get("/session", response_model=SessionState)
-def get_session_state(token: str, db: DBSession = Depends(get_db)):
-    """Get current session state. Requires player or GM token."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
+@router.post("/auth/refresh", response_model=Token)
+def refresh_token(token: Token):
+    """Refresh access token."""
+    # We'll use the same get_current_player dependency but we might need a separate one that accepts refresh tokens?
+    # Actually get_current_player validates against secret key. 
+    # But usually refresh endpoints verification is slightly different (checks if it IS a refresh token).
+    # For now, let's manually verify.
+    from jose import jwt, JWTError
+    from app.config import get_settings
+    settings = get_settings()
+    
+    try:
+        payload = jwt.decode(token.refresh_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        player_token = payload.get("sub")
+        if player_token is None:
+             raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+        
+    access_token = create_access_token(data={"sub": player_token})
+    # Optionally rotate refresh token
+    return Token(access_token=access_token, refresh_token=token.refresh_token, token_type="bearer")
 
-    session = player.session
+
+@router.get("/session", response_model=SessionState)
+def get_session_state(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
+    """Get current session state. Requires authentication."""
+    session = current_player.session
     player_count = db.query(Player).filter(Player.session_id == session.id).count()
 
     return SessionState(
@@ -109,21 +149,21 @@ def get_session_state(token: str, db: DBSession = Depends(get_db)):
         is_active=session.is_active,
         session_started=session.session_started,
         created_at=session.created_at,
-        player_count=player_count
+        player_count=player_count,
+        player_id=current_player.id
     )
 
 
 @router.post("/session/start")
-async def start_session(token: str, db: DBSession = Depends(get_db)):
+async def start_session(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Start the session. Only GM can start the session."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    if not player.is_gm:
+    if not current_player.is_gm:
         raise HTTPException(status_code=403, detail="Only GM can start the session")
     
-    session = player.session
+    session = current_player.session
     session.session_started = True
     db.commit()
     db.refresh(session)
@@ -139,39 +179,35 @@ async def start_session(token: str, db: DBSession = Depends(get_db)):
 
 
 @router.get("/session/players", response_model=list[PlayerResponse])
-def get_session_players(token: str, db: DBSession = Depends(get_db)):
+def get_session_players(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Get all players in the session."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    players = db.query(Player).filter(Player.session_id == player.session_id).all()
+    players = db.query(Player).filter(Player.session_id == current_player.session_id).all()
     return players
 
 
 @router.post("/session/ready")
 async def set_player_ready(
     data: PlayerReadyRequest,
-    token: str,
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
 ):
     """Set player ready status. Only for non-GM players."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    if player.is_gm:
+    if current_player.is_gm:
         raise HTTPException(status_code=403, detail="GM cannot set ready status")
     
-    player.is_ready = data.is_ready
+    current_player.is_ready = data.is_ready
     db.commit()
-    db.refresh(player)
+    db.refresh(current_player)
     
     # Broadcast player_ready event
     from app.websocket.manager import manager
     await manager.broadcast_event(
+    await manager.broadcast_event(
         "player_ready",
-        {"player_id": player.id, "player_name": player.name, "is_ready": data.is_ready}
+        {"player_id": current_player.id, "player_name": current_player.name, "is_ready": data.is_ready}
     )
     
     return {"message": f"Player ready status set to {data.is_ready}", "is_ready": data.is_ready}

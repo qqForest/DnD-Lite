@@ -6,6 +6,7 @@ from app.models.player import Player
 from app.schemas.dice import DiceRoll, DiceResult
 from app.services.dice import DiceService
 from app.websocket.manager import manager
+from app.core.auth import get_current_player
 
 router = APIRouter()
 
@@ -13,13 +14,10 @@ router = APIRouter()
 @router.post("/roll", response_model=DiceResult)
 async def roll_dice(
     data: DiceRoll,
-    token: str,
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
 ):
     """Roll dice and broadcast the result."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
     try:
         rolls, modifier, total = DiceService.roll(data.dice)
@@ -38,7 +36,7 @@ async def roll_dice(
         total=total,
         formula=formula,
         reason=data.reason,
-        player_name=player.name,
+        player_name=current_player.name,
     )
 
     # Broadcast dice result to all players

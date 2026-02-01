@@ -13,16 +13,9 @@ from app.schemas.combat import (
 from app.services.combat import CombatService
 from app.services.dice import DiceService
 from app.websocket.manager import manager
+from app.core.auth import get_current_player
 
 router = APIRouter()
-
-
-def get_player_by_token(token: str, db: DBSession) -> Player:
-    """Helper to get player from token."""
-    player = db.query(Player).filter(Player.token == token).first()
-    if not player:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return player
 
 
 def require_gm(player: Player):
@@ -106,23 +99,22 @@ def build_initiative_list(db: DBSession, combat: Combat) -> List[InitiativeEntry
 
 @router.post("/start")
 async def start_combat(
-    token: str,
     character_ids: Optional[List[int]] = None,
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
 ):
     """Start a new combat. GM only. Broadcasts combat_started to all players."""
-    player = get_player_by_token(token, db)
-    require_gm(player)
+    require_gm(current_player)
 
     # Create combat
-    combat = CombatService.create_combat(db, player.session_id)
+    combat = CombatService.create_combat(db, current_player.session_id)
 
     # Add participants if provided (backwards compatibility)
     if character_ids:
         for char_id in character_ids:
             character = db.query(Character).join(Player).filter(
                 Character.id == char_id,
-                Player.session_id == player.session_id
+                Player.session_id == current_player.session_id
             ).first()
 
             if character:
@@ -140,12 +132,14 @@ async def start_combat(
 
 
 @router.post("/end")
-async def end_combat(token: str, db: DBSession = Depends(get_db)):
+async def end_combat(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """End the current combat. GM only."""
-    player = get_player_by_token(token, db)
-    require_gm(player)
+    require_gm(current_player)
 
-    combat = get_active_combat(db, player.session_id)
+    combat = get_active_combat(db, current_player.session_id)
     CombatService.end_combat(db, combat)
 
     # Broadcast combat ended
@@ -155,19 +149,20 @@ async def end_combat(token: str, db: DBSession = Depends(get_db)):
 
 
 @router.post("/initiative", response_model=InitiativeRollResponse)
-async def roll_initiative(token: str, db: DBSession = Depends(get_db)):
+async def roll_initiative(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Roll initiative for the current player. Returns roll result."""
-    player = get_player_by_token(token, db)
-
-    if player.is_gm:
+    if current_player.is_gm:
         raise HTTPException(status_code=400, detail="GM cannot roll initiative")
 
-    combat = get_active_combat(db, player.session_id)
+    combat = get_active_combat(db, current_player.session_id)
 
     # Check if already rolled
     existing = db.query(InitiativeRoll).filter(
         InitiativeRoll.combat_id == combat.id,
-        InitiativeRoll.player_id == player.id
+        InitiativeRoll.player_id == current_player.id
     ).first()
 
     if existing:
@@ -179,44 +174,48 @@ async def roll_initiative(token: str, db: DBSession = Depends(get_db)):
     # Save roll
     initiative_roll = InitiativeRoll(
         combat_id=combat.id,
-        player_id=player.id,
+        player_id=current_player.id,
         roll=roll
     )
     db.add(initiative_roll)
     db.commit()
 
     # Send to GM only
-    gm_token = get_gm_token(db, player.session_id)
+    gm_token = get_gm_token(db, current_player.session_id)
     if gm_token:
         await manager.send_personal(gm_token, {
             "type": "initiative_rolled",
             "payload": {
-                "player_id": player.id,
-                "player_name": player.name,
+                "player_id": current_player.id,
+                "player_name": current_player.name,
                 "roll": roll
             }
         })
 
-    return InitiativeRollResponse(roll=roll, player_name=player.name)
+    return InitiativeRollResponse(roll=roll, player_name=current_player.name)
 
 
 @router.get("/initiative", response_model=InitiativeListResponse)
-def get_initiative_list(token: str, db: DBSession = Depends(get_db)):
+def get_initiative_list(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Get current initiative list for active combat."""
-    player = get_player_by_token(token, db)
-    combat = get_active_combat(db, player.session_id)
+    combat = get_active_combat(db, current_player.session_id)
 
     entries = build_initiative_list(db, combat)
     return InitiativeListResponse(entries=entries)
 
 
 @router.post("/next-turn")
-async def next_turn(token: str, db: DBSession = Depends(get_db)):
+async def next_turn(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Move to the next turn in combat. GM only."""
-    player = get_player_by_token(token, db)
-    require_gm(player)
+    require_gm(current_player)
 
-    combat = get_active_combat(db, player.session_id)
+    combat = get_active_combat(db, current_player.session_id)
     next_participant = CombatService.next_turn(db, combat)
 
     if not next_participant:
@@ -240,12 +239,11 @@ async def next_turn(token: str, db: DBSession = Depends(get_db)):
 @router.post("/action")
 async def combat_action(
     action: CombatAction,
-    token: str,
+    current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
 ):
     """Perform a combat action (damage/heal)."""
-    player = get_player_by_token(token, db)
-    combat = get_active_combat(db, player.session_id)
+    combat = get_active_combat(db, current_player.session_id)
 
     result = {"action": action.action_type}
 
@@ -287,12 +285,14 @@ async def combat_action(
 
 
 @router.get("", response_model=None)
-def get_combat_state(token: str, db: DBSession = Depends(get_db)):
+def get_combat_state(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
     """Get current combat state."""
-    player = get_player_by_token(token, db)
 
     combat = db.query(Combat).filter(
-        Combat.session_id == player.session_id,
+        Combat.session_id == current_player.session_id,
         Combat.is_active == True
     ).first()
 
