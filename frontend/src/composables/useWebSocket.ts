@@ -33,8 +33,14 @@ export function useWebSocket() {
       connect()
     }
 
-    wsService.on('connected', () => {
+    wsService.on('connected', async () => {
       isConnected.value = true
+      // Setup handlers for all stores when connected
+      const charactersStore = (await import('@/stores/characters')).useCharactersStore()
+      const diceStore = (await import('@/stores/dice')).useDiceStore()
+
+      charactersStore.setupWebSocketHandlers()
+      diceStore.setupWebSocketHandlers()
     })
 
     wsService.on('disconnected', () => {

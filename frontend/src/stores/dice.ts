@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { DiceResult, DiceRoll } from '@/types/models'
+import type { DiceResult } from '@/types/models'
 import { diceApi } from '@/services/api'
 import { wsService } from '@/services/websocket'
 import { useSessionStore } from './session'
@@ -28,7 +28,12 @@ export const useDiceStore = defineStore('dice', () => {
   // Alias для обратной совместимости
   const rollDice = roll
 
+  const isHandlersSetup = ref(false)
+
   function setupWebSocketHandlers() {
+    if (isHandlersSetup.value) return
+    isHandlersSetup.value = true
+
     wsService.on('dice_result', (data: DiceResult) => {
       lastResult.value = data
       history.value.unshift(data)

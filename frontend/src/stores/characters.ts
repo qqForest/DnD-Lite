@@ -116,7 +116,12 @@ export const useCharactersStore = defineStore('characters', () => {
     selectedId.value = characterId
   }
 
+  const isHandlersSetup = ref(false)
+
   function setupWebSocketHandlers() {
+    if (isHandlersSetup.value) return
+    isHandlersSetup.value = true
+
     wsService.on('character_created', (data: { character: Character }) => {
       const existingIndex = characters.value.findIndex(c => c.id === data.character.id)
       if (existingIndex === -1) {

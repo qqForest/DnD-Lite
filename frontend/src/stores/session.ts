@@ -68,7 +68,7 @@ export const useSessionStore = defineStore('session', () => {
   async function startSession() {
     if (!token.value) throw new Error('Not authenticated')
     if (!isGm.value) throw new Error('Only GM can start session')
-    
+
     try {
       await sessionApi.startSession(token.value)
       sessionStarted.value = true
@@ -93,7 +93,7 @@ export const useSessionStore = defineStore('session', () => {
   async function setReady(isReady: boolean) {
     if (!token.value) throw new Error('Not authenticated')
     if (isGm.value) throw new Error('GM cannot set ready status')
-    
+
     try {
       await sessionApi.setReady(isReady, token.value)
       // Обновляем локальное состояние
@@ -111,11 +111,16 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  const isHandlersSetup = ref<boolean>(false)
+
   function connectWebSocket() {
     if (!token.value) return
-    
+
     wsService.disconnect()
     wsService.connect(token.value)
+
+    if (isHandlersSetup.value) return
+    isHandlersSetup.value = true
 
     wsService.on('connected', () => {
       isConnected.value = true

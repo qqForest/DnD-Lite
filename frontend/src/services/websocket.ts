@@ -1,4 +1,4 @@
-import type { WebSocketEvent } from '@/types/events'
+// WebSocket service for real-time communication
 
 type EventHandler = (data: any) => void
 
@@ -12,9 +12,23 @@ class WebSocketService {
 
   connect(token: string) {
     this.token = token
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+    let wsUrl = import.meta.env.VITE_WS_URL
+
+    if (!wsUrl) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const host = window.location.host
+      // If we are in dev mode (usually port 3000), default to localhost:8000 for backend
+      // Otherwise use the current host
+      if (host.includes('localhost:3000') || host.includes('127.0.0.1:3000')) {
+        wsUrl = `${protocol}//${window.location.hostname}:8000`
+      } else {
+        wsUrl = `${protocol}//${host}`
+      }
+    }
+
     const url = `${wsUrl}/ws?token=${token}`
-    
+    console.log(`Connecting to WebSocket: ${url}`)
+
     this.ws = new WebSocket(url)
 
     this.ws.onopen = () => {
@@ -55,7 +69,7 @@ class WebSocketService {
 
   send(event: string, data: any) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ event, data }))
+      this.ws.send(JSON.stringify({ type: event, payload: data }))
     } else {
       console.warn('WebSocket is not connected')
     }
@@ -65,7 +79,10 @@ class WebSocketService {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, [])
     }
-    this.eventHandlers.get(event)!.push(handler)
+    const handlers = this.eventHandlers.get(event)!
+    if (!handlers.includes(handler)) {
+      handlers.push(handler)
+    }
   }
 
   off(event: string, handler: EventHandler) {
@@ -75,6 +92,14 @@ class WebSocketService {
       if (index > -1) {
         handlers.splice(index, 1)
       }
+    }
+  }
+
+  offAll(event?: string) {
+    if (event) {
+      this.eventHandlers.delete(event)
+    } else {
+      this.eventHandlers.clear()
     }
   }
 
@@ -101,7 +126,7 @@ class WebSocketService {
       this.reconnectAttempts++
       const delay = 2000 * this.reconnectAttempts
       console.log(`Attempting to reconnect in ${delay}ms... (attempt ${this.reconnectAttempts}/${this.maxReconnects})`)
-      
+
       this.reconnectTimeout = window.setTimeout(() => {
         if (this.token) {
           this.connect(this.token)

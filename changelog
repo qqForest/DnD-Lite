@@ -103,9 +103,13 @@
   - Добавлен max-height и overflow-y: auto для CharacterSelection
   - Стилизован scrollbar для единого дизайна (тонкий, полупрозрачный)
 
+2026-02-01: Исправлена проблема синхронизации WebSocket на VPS
+  - Исправлена проблема синхронизации WebSocket на VPS (динамическое определение URL).
+  - Предотвращено дублирование обработчиков событий WebSocket в Pinia сторах.
+  - Улучшено управление жизненным циклом WebSocket подключений.
+
 2026-01-27: Добавлены шаблоны классов D&D 5e
-  - 12 классов: Fighter, Wizard, Rogue, Cleric, Barbarian, Ranger,
-    Paladin, Bard, Druid, Monk, Sorcerer, Warlock
+  - 12 классов: Fighter, Wizard, Rogue, Cleric, Barbarian, Paladin, Bard, Druid, Monk, Sorcerer, Warlock
   - Каждый шаблон включает: характеристики, HP, стартовые предметы и заклинания
   - API endpoints: GET /api/templates, GET /api/templates/{id},
     POST /api/templates/create
