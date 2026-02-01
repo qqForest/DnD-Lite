@@ -205,7 +205,6 @@ async def set_player_ready(
     # Broadcast player_ready event
     from app.websocket.manager import manager
     await manager.broadcast_event(
-    await manager.broadcast_event(
         "player_ready",
         {"player_id": current_player.id, "player_name": current_player.name, "is_ready": data.is_ready}
     )
