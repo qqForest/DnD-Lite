@@ -1,3 +1,9 @@
+2026-02-01: Подготовка к деплою (Docker)
+  - Создан Dockerfile для мульти-этапной сборки (frontend + backend)
+  - Создан docker-compose.yml для запуска на VPS
+  - Добавлена раздача статики фронтенда через FastAPI в app/main.py
+  - Настроен .dockerignore
+
 2026-02-01: Код проекта залит в репозиторий GitHub
   - Настроен удаленный репозиторий origin: https://github.com/qqForest/DnD-Lite.git
   - Основная ветка main отправлена на сервер

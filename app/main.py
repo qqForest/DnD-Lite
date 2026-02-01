@@ -27,13 +27,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
 # Include API routes
 app.include_router(api_router)
 
-
-@app.get("/")
-def root():
-    return {"message": "DnD Lite GM API", "docs": "/docs"}
+# Mount static files from frontend/dist if it exists
+static_path = "frontend/dist"
+if os.path.exists(static_path):
+    app.mount("/", StaticFiles(directory=static_path, html=True), name="static")
+else:
+    @app.get("/")
+    def root():
+        return {"message": "DnD Lite GM API", "docs": "/docs", "frontend": "Not built yet. Use npm run build in frontend folder."}
 
 
 @app.websocket("/ws")

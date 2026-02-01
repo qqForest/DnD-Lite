@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "80:8000"
+    volumes:
+      - ./dnd_lite.db:/app/dnd_lite.db
+    restart: always
