@@ -1,3 +1,9 @@
+2026-02-02: Настройка окружения для локальной разработки в Docker
+  - Создан backend.dev.Dockerfile с поддержкой горячей перезагрузки (uvicorn --reload)
+  - Создан frontend.dev.Dockerfile для запуска Vite в контейнере
+  - Создан docker-compose.dev.yml для связки сервисов с использованием volumes
+  - Обновлен CLAUDE.md командами для запуска Docker-окружения
+
 2026-02-01: Система аутентификации JWT и улучшение API
   - Backend: Реализована JWT аутентификация (Access & Refresh tokens)
   - Backend: Добавлена зависимость python-jose и passlib

@@ -20,6 +20,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # Установка зависимостей
 pip install -r requirements.txt
+
+# Локальная разработка через Docker
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 Документация API доступна по адресу http://localhost:8000/docs (Swagger UI).

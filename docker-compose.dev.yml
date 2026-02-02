@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.dev.Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./dnd_lite.db:/app/dnd_lite.db
+    environment:
+      - ENV=dev
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.dev.Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules # Important: keeps container's node_modules
+    environment:
+      # We point to localhost from the browser's PERSPECTIVE
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:8000
+    depends_on:
+      - backend
