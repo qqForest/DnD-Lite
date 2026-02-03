@@ -5,10 +5,7 @@
     </template>
 
     <div class="gm-content">
-      <div class="map-placeholder">
-        <p>Карта будет здесь</p>
-        <p class="hint">Canvas карта будет реализована в следующих итерациях</p>
-      </div>
+      <GameMap />
     </div>
 
     <!-- Roll Result Modal -->
@@ -31,6 +28,7 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import GMLayout from '@/layouts/GMLayout.vue'
 import RollResult from '@/components/dice/RollResult.vue'
 import InitiativeBar from '@/components/combat/InitiativeBar.vue'
+import GameMap from '@/components/map/GameMap.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()

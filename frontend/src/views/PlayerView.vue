@@ -4,9 +4,8 @@
       <PlayerTopBar @toggleSidebar="showSidebar = !showSidebar" />
     </template>
 
-    <div class="map-placeholder">
-      <p>Карта будет здесь</p>
-      <p class="hint">Интерактивная карта появится в следующих версиях</p>
+    <div class="map-container">
+      <GameMap :is-read-only="true" />
     </div>
 
     <template #bottom>
@@ -47,6 +46,7 @@ import PlayerDiceSelector from '@/components/player/PlayerDiceSelector.vue'
 import PlayerSidebar from '@/components/player/PlayerSidebar.vue'
 import RollResult from '@/components/dice/RollResult.vue'
 import InitiativeRollModal from '@/components/combat/InitiativeRollModal.vue'
+import GameMap from '@/components/map/GameMap.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -119,16 +119,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.map-placeholder {
+.map-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
+  overflow: hidden;
 }
 
 .hint {

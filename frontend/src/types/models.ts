@@ -180,3 +180,69 @@ export interface CreateFromTemplateRequest {
   include_items?: boolean
   include_spells?: boolean
 }
+
+export interface MapToken {
+  id: string
+  map_id: string
+  character_id?: number | null
+  type: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+  layer: string
+  label?: string | null
+  color?: string | null
+}
+
+export interface MapTokenCreate {
+  character_id?: number | null
+  type?: string
+  x: number
+  y: number
+  scale?: number
+  rotation?: number
+  layer?: string
+  label?: string | null
+  color?: string | null
+}
+
+export interface MapTokenUpdate {
+  character_id?: number | null
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+  layer?: string
+  label?: string | null
+  color?: string | null
+}
+
+export interface GameMap {
+  id: string
+  session_id: number
+  name: string
+  background_url?: string | null
+  width: number
+  height: number
+  grid_scale: number
+  is_active: boolean
+  tokens: MapToken[]
+}
+
+export interface MapCreate {
+  name: string
+  background_url?: string | null
+  width?: number
+  height?: number
+  grid_scale?: number
+}
+
+export interface MapUpdate {
+  name?: string
+  background_url?: string | null
+  width?: number
+  height?: number
+  grid_scale?: number
+  is_active?: boolean
+}

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import session, characters, combat, dice, persistence, templates
+from app.api import session, characters, combat, dice, persistence, templates, maps
 
 api_router = APIRouter(prefix="/api")
 
@@ -9,3 +9,4 @@ api_router.include_router(templates.router, prefix="/templates", tags=["template
 api_router.include_router(combat.router, prefix="/combat", tags=["combat"])
 api_router.include_router(dice.router, prefix="/dice", tags=["dice"])
 api_router.include_router(persistence.router, tags=["persistence"])
+api_router.include_router(maps.router, tags=["maps"])

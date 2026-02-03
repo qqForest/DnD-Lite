@@ -16,7 +16,12 @@ import type {
   ClassTemplateResponse,
   CreateFromTemplateRequest,
   InitiativeRollResponse,
-  InitiativeListResponse
+  InitiativeListResponse,
+  GameMap,
+  MapCreate,
+  MapToken,
+  MapTokenCreate,
+  MapTokenUpdate
 } from '@/types/models'
 
 const api: AxiosInstance = axios.create({
@@ -279,6 +284,43 @@ export const persistenceApi = {
   validateImport: async (data: any): Promise<any> => {
     const response = await api.post('/session/validate', { data })
     return response.data
+  }
+}
+
+// Maps API
+export const mapsApi = {
+  list: async (): Promise<GameMap[]> => {
+    const response = await api.get<GameMap[]>('/session/maps')
+    return response.data
+  },
+
+  get: async (mapId: string): Promise<GameMap> => {
+    const response = await api.get<GameMap>(`/maps/${mapId}`)
+    return response.data
+  },
+
+  create: async (data: MapCreate): Promise<GameMap> => {
+    const response = await api.post<GameMap>('/session/maps', data)
+    return response.data
+  },
+
+  setActive: async (mapId: string): Promise<GameMap> => {
+    const response = await api.put<GameMap>(`/maps/${mapId}/active`)
+    return response.data
+  },
+
+  addToken: async (mapId: string, data: MapTokenCreate): Promise<MapToken> => {
+    const response = await api.post<MapToken>(`/maps/${mapId}/tokens`, data)
+    return response.data
+  },
+
+  updateToken: async (tokenId: string, data: MapTokenUpdate): Promise<MapToken> => {
+    const response = await api.patch<MapToken>(`/tokens/${tokenId}`, data)
+    return response.data
+  },
+
+  deleteToken: async (tokenId: string): Promise<void> => {
+    await api.delete(`/tokens/${tokenId}`)
   }
 }
 

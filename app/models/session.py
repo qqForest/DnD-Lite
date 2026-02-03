@@ -17,3 +17,4 @@ class Session(Base):
 
     players = relationship("Player", back_populates="session", cascade="all, delete-orphan")
     combats = relationship("Combat", back_populates="session", cascade="all, delete-orphan")
+    maps = relationship("Map", back_populates="session", cascade="all, delete-orphan")

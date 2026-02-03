@@ -9,4 +9,7 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
+import VueKonva from 'vue-konva'
+app.use(VueKonva)
+
 app.mount('#app')
