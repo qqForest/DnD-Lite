@@ -1,3 +1,8 @@
+2026-02-04: Исправлена ошибка 405 на VPS при создании персонажей/NPC/карт
+  - Причина: catch-all GET маршрут для SPA (`/{full_path:path}`) перехватывал POST/PUT/DELETE запросы к API при наличии собранного фронтенда
+  - Заменён catch-all route на exception handler для StarletteHTTPException
+  - API роуты больше не конфликтуют с раздачей SPA статики
+
 2026-02-04: Выбор карты из профиля при создании сессии
   - Backend: SessionCreate принимает user_map_id — опциональный ID карты из профиля
   - Backend: POST /session копирует UserMap в Map сессии с is_active=True при указании user_map_id
