@@ -24,7 +24,7 @@ def get_session_maps(
     return maps
 
 @router.post("/session/maps", response_model=MapResponse)
-def create_map(
+async def create_map(
     map_data: MapCreate,
     current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
@@ -44,6 +44,25 @@ def create_map(
     db.add(new_map)
     db.commit()
     db.refresh(new_map)
+
+    # Broadcast map_created so players know about the new map
+    await manager.broadcast_event(
+        "map_created",
+        {
+            "map": {
+                "id": new_map.id,
+                "session_id": new_map.session_id,
+                "name": new_map.name,
+                "background_url": new_map.background_url,
+                "width": new_map.width,
+                "height": new_map.height,
+                "grid_scale": new_map.grid_scale,
+                "is_active": new_map.is_active,
+                "tokens": []
+            }
+        }
+    )
+
     return new_map
 
 @router.get("/maps/{map_id}", response_model=MapResponse)
@@ -128,17 +147,23 @@ async def add_token(
     db.commit()
     db.refresh(new_token)
 
-    # Broadcast token_added
+    # Broadcast token_added with complete token data
     await manager.broadcast_event(
         "token_added",
         {
             "map_id": map_id,
             "token": {
                 "id": new_token.id,
+                "map_id": new_token.map_id,
+                "character_id": new_token.character_id,
+                "type": new_token.type,
                 "x": new_token.x,
                 "y": new_token.y,
-                "type": new_token.type,
-                "character_id": new_token.character_id
+                "scale": new_token.scale,
+                "rotation": new_token.rotation,
+                "layer": new_token.layer,
+                "label": new_token.label,
+                "color": new_token.color
             }
         }
     )

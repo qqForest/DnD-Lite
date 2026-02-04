@@ -12,12 +12,15 @@ from app.models.character import Character
 from app.models.user_character import UserCharacter
 from app.models.user import User
 from app.schemas.session import (
+    SessionCreate,
     SessionResponse,
     SessionJoin,
     SessionJoinResponse,
     SessionState,
     PlayerReadyRequest,
 )
+from app.models.map import Map
+from app.models.user_map import UserMap
 from app.schemas.player import PlayerResponse
 from app.core.auth import create_access_token, create_refresh_token, get_current_player, get_optional_current_user
 from app.schemas.auth import Token
@@ -33,10 +36,14 @@ def generate_room_code(length: int = 6) -> str:
 
 @router.post("/session", response_model=SessionResponse)
 def create_session(
+    data: SessionCreate = None,
     db: DBSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """Create a new game session. Returns room code and GM token."""
+    if data is None:
+        data = SessionCreate()
+
     # Generate unique room code
     while True:
         code = generate_room_code()
@@ -50,6 +57,25 @@ def create_session(
     db.add(session)
     db.commit()
     db.refresh(session)
+
+    # Copy UserMap to session Map if provided
+    if data.user_map_id and current_user:
+        user_map = db.query(UserMap).filter(
+            UserMap.id == data.user_map_id,
+            UserMap.user_id == current_user.id
+        ).first()
+        if user_map:
+            session_map = Map(
+                session_id=session.id,
+                name=user_map.name,
+                background_url=user_map.background_url,
+                width=user_map.width,
+                height=user_map.height,
+                grid_scale=user_map.grid_scale,
+                is_active=True,
+            )
+            db.add(session_map)
+            db.commit()
 
     # Create GM player
     gm_player = Player(
@@ -66,7 +92,7 @@ def create_session(
     refresh_token = create_refresh_token(data={"sub": gm_token})
 
     return SessionResponse(
-        code=code, 
+        code=code,
         gm_token=gm_token,
         access_token=access_token,
         refresh_token=refresh_token

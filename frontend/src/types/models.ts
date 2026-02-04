@@ -174,6 +174,7 @@ export interface CharacterUpdate {
 export interface DiceRoll {
   dice: string
   reason?: string | null
+  roll_type?: 'normal' | 'advantage' | 'disadvantage'
 }
 
 export interface DiceResult {
@@ -184,6 +185,9 @@ export interface DiceResult {
   formula: string
   reason: string | null
   player_name: string
+  roll_type?: string
+  all_rolls?: number[][] | null
+  chosen_index?: number | null
   timestamp?: string
 }
 

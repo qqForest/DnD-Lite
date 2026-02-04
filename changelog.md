@@ -1,3 +1,25 @@
+2026-02-04: Выбор карты из профиля при создании сессии
+  - Backend: SessionCreate принимает user_map_id — опциональный ID карты из профиля
+  - Backend: POST /session копирует UserMap в Map сессии с is_active=True при указании user_map_id
+  - Frontend: CreateSessionModal — модалка выбора карты при создании сессии
+  - Frontend: Список карт из профиля с возможностью выбора, создание без карты
+  - Frontend: sessionApi.createSession и sessionStore.createSession принимают user_map_id
+
+2026-02-04: Броски с преимуществом и помехой (Advantage/Disadvantage)
+  - Backend: DiceRoll схема принимает roll_type ("normal" | "advantage" | "disadvantage")
+  - Backend: DiceResult возвращает all_rolls (оба набора бросков) и chosen_index (какой выбран)
+  - Backend: DiceService.roll_with_type() — кидает два набора и выбирает лучший/худший
+  - Frontend: DiceRollModal — два чекбокса "Преимущество" и "Помеха" в секции типа броска
+  - Frontend: RollResult — визуальное отображение двух кубиков: выбранный подсвечен золотом и увеличен, отброшенный затемнён и зачёркнут
+  - Frontend: Бейдж типа броска (Преимущество/Помеха) над результатом
+  - Frontend: Увеличен таймер автозакрытия до 3 секунд для advantage/disadvantage бросков
+
+2026-02-04: Исправлена синхронизация токенов карты в реальном времени
+  - Исправлен broadcast token_added — теперь отправляются все поля токена (scale, rotation, layer, label, color, map_id), а не только id/x/y/type
+  - Добавлен broadcast map_created при создании карты — игроки получают карту без перезагрузки
+  - Добавлен fallback fetchSessionMaps() в обработчиках token_added/token_updated при отсутствии карты в локальном сторе (race condition)
+  - Добавлен обработчик события map_created во фронтенд map store
+
 2026-02-04: Исправлена авторизация, разлогин и автозаполнение форм
   - Разделение токенов: пользовательские JWT сохраняются в userAccessToken/userRefreshToken перед перезаписью сессионными
   - clearSession() восстанавливает пользовательские токены вместо удаления — выход из сессии больше не разлогинивает

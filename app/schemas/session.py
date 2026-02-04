@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class SessionCreate(BaseModel):
-    pass
+    user_map_id: Optional[str] = None
 
 
 class SessionResponse(BaseModel):

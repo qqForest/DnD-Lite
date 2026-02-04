@@ -143,8 +143,8 @@ function logoutAndRedirect() {
 
 // Session API
 export const sessionApi = {
-  createSession: async (): Promise<SessionResponse> => {
-    const response = await api.post<SessionResponse>('/session')
+  createSession: async (data?: { user_map_id?: string }): Promise<SessionResponse> => {
+    const response = await api.post<SessionResponse>('/session', data || {})
     return response.data
   },
 

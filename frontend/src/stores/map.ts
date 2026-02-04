@@ -142,6 +142,9 @@ export const useMapStore = defineStore('map', () => {
                 if (!map.tokens.find(t => t.id === data.token.id)) {
                     map.tokens.push(data.token)
                 }
+            } else {
+                // Map not loaded yet — fetch all maps to sync state
+                fetchSessionMaps()
             }
         })
 
@@ -152,6 +155,8 @@ export const useMapStore = defineStore('map', () => {
                 if (token) {
                     Object.assign(token, data.changes)
                 }
+            } else {
+                fetchSessionMaps()
             }
         })
 
@@ -159,6 +164,12 @@ export const useMapStore = defineStore('map', () => {
             const map = maps.value.find(m => m.id === data.map_id)
             if (map) {
                 map.tokens = map.tokens.filter(t => t.id !== data.token_id)
+            }
+        })
+
+        wsService.on('map_created', (data: { map: GameMap }) => {
+            if (!maps.value.find(m => m.id === data.map.id)) {
+                maps.value.push(data.map)
             }
         })
     }

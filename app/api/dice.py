@@ -20,7 +20,9 @@ async def roll_dice(
     """Roll dice and broadcast the result."""
 
     try:
-        rolls, modifier, total = DiceService.roll(data.dice)
+        rolls, modifier, total, all_rolls, chosen_index = DiceService.roll_with_type(
+            data.dice, data.roll_type
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -37,6 +39,9 @@ async def roll_dice(
         formula=formula,
         reason=data.reason,
         player_name=current_player.name,
+        roll_type=data.roll_type,
+        all_rolls=all_rolls,
+        chosen_index=chosen_index,
     )
 
     # Broadcast dice result to all players

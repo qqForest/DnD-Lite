@@ -32,8 +32,9 @@ export const useSessionStore = defineStore('session', () => {
     return currentPlayer.value?.is_ready ?? false
   })
 
-  async function createSession() {
-    const response: SessionResponse = await sessionApi.createSession()
+  async function createSession(userMapId?: string) {
+    const data = userMapId ? { user_map_id: userMapId } : undefined
+    const response: SessionResponse = await sessionApi.createSession(data)
     code.value = response.code
     token.value = response.gm_token
     isGm.value = true

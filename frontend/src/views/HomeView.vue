@@ -22,7 +22,7 @@
           <div class="action-content">
             <h3 class="action-title">Создать сессию</h3>
             <p class="action-desc">Начните новую игровую сессию как Game Master</p>
-            <BaseButton variant="primary" :disabled="loading" @click="handleCreateSession">
+            <BaseButton variant="primary" :disabled="loading" @click="showCreateModal = true">
               Создать
             </BaseButton>
           </div>
@@ -97,6 +97,10 @@
         </div>
       </section>
     </div>
+    <CreateSessionModal
+      v-model="showCreateModal"
+      @create="handleCreateSession"
+    />
   </div>
 </template>
 
@@ -109,6 +113,7 @@ import { authApi } from '@/services/api'
 import type { UserStats } from '@/types/models'
 import BasePanel from '@/components/common/BasePanel.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import CreateSessionModal from '@/components/gm/CreateSessionModal.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -117,6 +122,7 @@ const authStore = useAuthStore()
 const toast = useToast()
 
 const loading = ref(false)
+const showCreateModal = ref(false)
 const stats = ref<UserStats | null>(null)
 const statsLoading = ref(true)
 
@@ -130,10 +136,11 @@ function handleLogout() {
   router.push({ name: 'login' })
 }
 
-async function handleCreateSession() {
+async function handleCreateSession(userMapId?: string) {
   loading.value = true
+  showCreateModal.value = false
   try {
-    await sessionStore.createSession()
+    await sessionStore.createSession(userMapId)
     router.push({ name: 'gm-lobby' })
   } catch (error) {
     console.error('Failed to create session:', error)
