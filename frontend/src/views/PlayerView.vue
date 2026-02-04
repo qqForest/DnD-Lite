@@ -1,12 +1,11 @@
 <template>
   <PlayerLayout>
     <template #topbar>
-      <PlayerTopBar @toggleSidebar="showSidebar = !showSidebar" />
+      <PlayerTopBar @toggleSidebar="showSidebar = !showSidebar" @leave="showLeaveModal = true" />
     </template>
 
-    <div class="map-placeholder">
-      <p>Карта будет здесь</p>
-      <p class="hint">Интерактивная карта появится в следующих версиях</p>
+    <div class="map-container">
+      <GameMap :is-read-only="true" />
     </div>
 
     <template #bottom>
@@ -28,6 +27,15 @@
 
     <!-- Initiative Roll Modal -->
     <InitiativeRollModal />
+
+    <ConfirmModal
+      v-model="showLeaveModal"
+      title="Покинуть сессию?"
+      message="Вы уверены, что хотите покинуть текущую сессию?"
+      confirm-text="Покинуть"
+      :danger="true"
+      @confirm="handleLeave"
+    />
   </PlayerLayout>
 </template>
 
@@ -47,6 +55,8 @@ import PlayerDiceSelector from '@/components/player/PlayerDiceSelector.vue'
 import PlayerSidebar from '@/components/player/PlayerSidebar.vue'
 import RollResult from '@/components/dice/RollResult.vue'
 import InitiativeRollModal from '@/components/combat/InitiativeRollModal.vue'
+import GameMap from '@/components/map/GameMap.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -55,10 +65,16 @@ const diceStore = useDiceStore()
 const combatStore = useCombatStore()
 
 const showSidebar = ref(false)
+const showLeaveModal = ref(false)
 const showResultModal = computed(() => diceStore.showResult)
 
 function closeResult() {
   diceStore.hideResult()
+}
+
+function handleLeave() {
+  sessionStore.clearSession()
+  router.push({ name: 'profile' })
 }
 
 useWebSocket()
@@ -119,16 +135,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.map-placeholder {
+.map-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
+  overflow: hidden;
 }
 
 .hint {

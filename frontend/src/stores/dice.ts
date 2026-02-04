@@ -10,12 +10,12 @@ export const useDiceStore = defineStore('dice', () => {
   const lastResult = ref<DiceResult | null>(null)
   const showResult = ref(false)
 
-  async function roll(notation: string, reason?: string) {
+  async function roll(notation: string, reason?: string, rollType: 'normal' | 'advantage' | 'disadvantage' = 'normal') {
     const sessionStore = useSessionStore()
     if (!sessionStore.token) throw new Error('Not authenticated')
 
     try {
-      const result = await diceApi.roll({ dice: notation, reason: reason || null })
+      const result = await diceApi.roll({ dice: notation, reason: reason || null, roll_type: rollType })
       // Don't add to history or show result here - will be handled via WebSocket
       // This ensures all clients (including the roller) see it at the same time
       return result

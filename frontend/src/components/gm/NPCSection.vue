@@ -3,10 +3,15 @@
     <template #header>
       <div class="header-content">
         <h3 class="panel-title">NPC (Неигровые персонажи)</h3>
-        <BaseButton variant="primary" size="sm" @click="showCreateModal = true">
-          <Plus :size="16" />
-          Создать NPC
-        </BaseButton>
+        <div class="header-buttons">
+          <BaseButton variant="secondary" size="sm" @click="showImportModal = true">
+            Из профиля
+          </BaseButton>
+          <BaseButton variant="primary" size="sm" @click="showCreateModal = true">
+            <Plus :size="16" />
+            Создать NPC
+          </BaseButton>
+        </div>
       </div>
     </template>
     <div v-if="npcs.length === 0" class="empty-state">
@@ -31,6 +36,11 @@
       v-model="showCreateModal"
       @created="handleCharacterCreated"
     />
+
+    <ImportNpcModal
+      v-model="showImportModal"
+      @imported="handleCharacterCreated(0)"
+    />
   </BasePanel>
 </template>
 
@@ -44,12 +54,14 @@ import BasePanel from '@/components/common/BasePanel.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import CharacterCard from '@/components/character/CharacterCard.vue'
 import CreateCharacterModal from './CreateCharacterModal.vue'
+import ImportNpcModal from './ImportNpcModal.vue'
 
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 const toast = useToast()
 
 const showCreateModal = ref(false)
+const showImportModal = ref(false)
 
 const npcs = computed(() => {
   const gmPlayer = sessionStore.players.find(p => p.is_gm)
@@ -87,6 +99,11 @@ async function handleDelete(characterId: number) {
 
 .panel-title {
   margin: 0;
+}
+
+.header-buttons {
+  display: flex;
+  gap: var(--spacing-2);
 }
 
 .empty-state {

@@ -1,3 +1,123 @@
+2026-02-04: Выбор карты из профиля при создании сессии
+  - Backend: SessionCreate принимает user_map_id — опциональный ID карты из профиля
+  - Backend: POST /session копирует UserMap в Map сессии с is_active=True при указании user_map_id
+  - Frontend: CreateSessionModal — модалка выбора карты при создании сессии
+  - Frontend: Список карт из профиля с возможностью выбора, создание без карты
+  - Frontend: sessionApi.createSession и sessionStore.createSession принимают user_map_id
+  - Frontend: GMLobbyView — секция «Карты» с отображением карт сессии, выбором активной и импортом из профиля
+
+2026-02-04: Броски с преимуществом и помехой (Advantage/Disadvantage)
+  - Backend: DiceRoll схема принимает roll_type ("normal" | "advantage" | "disadvantage")
+  - Backend: DiceResult возвращает all_rolls (оба набора бросков) и chosen_index (какой выбран)
+  - Backend: DiceService.roll_with_type() — кидает два набора и выбирает лучший/худший
+  - Frontend: DiceRollModal — два чекбокса "Преимущество" и "Помеха" в секции типа броска
+  - Frontend: RollResult — визуальное отображение двух кубиков: выбранный подсвечен золотом и увеличен, отброшенный затемнён и зачёркнут
+  - Frontend: Бейдж типа броска (Преимущество/Помеха) над результатом
+  - Frontend: Увеличен таймер автозакрытия до 3 секунд для advantage/disadvantage бросков
+
+2026-02-04: Исправлена синхронизация токенов карты в реальном времени
+  - Исправлен broadcast token_added — теперь отправляются все поля токена (scale, rotation, layer, label, color, map_id), а не только id/x/y/type
+  - Добавлен broadcast map_created при создании карты — игроки получают карту без перезагрузки
+  - Добавлен fallback fetchSessionMaps() в обработчиках token_added/token_updated при отсутствии карты в локальном сторе (race condition)
+  - Добавлен обработчик события map_created во фронтенд map store
+
+2026-02-04: Исправлена авторизация, разлогин и автозаполнение форм
+  - Разделение токенов: пользовательские JWT сохраняются в userAccessToken/userRefreshToken перед перезаписью сессионными
+  - clearSession() восстанавливает пользовательские токены вместо удаления — выход из сессии больше не разлогинивает
+  - Исправлен URL refresh-токена: /session/auth/refresh → /auth/refresh
+  - Автозаполнение: handleLogin/handleRegister читают значения из FormData (DOM) вместо пустых Vue refs
+  - Кнопка входа больше не disabled при автозаполнении (валидация перенесена в обработчик)
+  - LoginView и RegisterView обёрнуты в <form> с name/autocomplete атрибутами
+  - BaseButton: добавлен проп type для type="submit"
+
+2026-02-04: Исправлена передача персонажа игрока к GM в лобби
+  - При join_session с персонажем теперь отправляется WebSocket broadcast character_created
+  - GM получает персонажа в реальном времени через существующий handler в characters store
+
+2026-02-04: Startup-миграции для SQLite
+  - Добавлен app/migrations.py — лёгкий скрипт миграций, запускается при старте приложения
+  - Автоматически проверяет схему БД и добавляет недостающие столбцы (ALTER TABLE)
+  - Идемпотентный — безопасно перезапускать, пропускает уже существующие столбцы
+  - Текущие миграции: players.is_ready, players.user_id, user_characters.sessions_played
+  - Подключён в main.py после Base.metadata.create_all()
+
+2026-02-04: Исправлены ошибки 500 при создании сессий и персонажей
+  - Причина: столбцы user_id (players) и sessions_played (user_characters) отсутствовали в SQLite
+  - create_all() не добавляет столбцы в существующие таблицы — теперь покрыто миграциями
+
+2026-02-04: Исправлен скроллинг на всех страницах
+  - Убран overflow: hidden с body и #app в base.css — это блокировало прокрутку на всех страницах
+  - #app теперь использует min-height: 100vh вместо фиксированной высоты
+  - GMLayout и PlayerLayout сохраняют overflow: hidden (полноэкранный интерфейс с картой)
+  - GMLobbyView и PlayerLobbyView: убраны лишние overflow-y: auto (скроллится body)
+
+2026-02-04: Dashboard — главная страница как дашборд со статистикой
+  - Frontend: HomeView переделан в Dashboard с quick actions, обзором статистики и топ-5 играемых персонажей
+  - Frontend: Quick actions — создание сессии (GM), присоединение к сессии, создание персонажа (Player)
+  - Frontend: Обзор — карточки: сессий сыграно, персонажей, NPC
+  - Frontend: Секция "Самые играемые персонажи" — ранжирование по sessions_played с заглушкой при пустых данных
+  - Frontend: Тип UserStats, метод authApi.getStats()
+  - Backend: Поле sessions_played в модели UserCharacter — инкрементируется при join session с персонажем
+  - Backend: API endpoint GET /api/users/me/stats — total_characters, total_npcs, total_sessions, top_characters
+  - Backend: Pydantic-схема UserStatsResponse
+
+2026-02-04: Создание, редактирование, импорт персонажей/карт и улучшения UX
+  - Frontend: CreateCharacterView — форма создания персонажа/NPC с выбором шаблона класса и inline-валидацией
+  - Frontend: EditCharacterView — редактирование существующего персонажа/NPC с предзаполнением формы
+  - Frontend: CreateMapView — форма создания карты с настройками размеров и сетки
+  - Frontend: ConfirmModal — переиспользуемый диалог подтверждения (удаление, выход)
+  - Frontend: ImportNpcModal — импорт NPC из профиля в активную сессию
+  - Frontend: ImportMapModal — загрузка карты из профиля в активную сессию
+  - Frontend: ProfileView обновлён: навигация вместо плейсхолдеров, кнопки редактирования, подтверждение удаления
+  - Frontend: JoinSessionView: ссылка на создание персонажа, предупреждение при входе без персонажа
+  - Frontend: Кнопка "Покинуть сессию" с подтверждением во всех session views (GM/Player Lobby/Game)
+  - Frontend: UserCharacterCard: добавлены prop editable и emit edit
+  - Frontend: NPCSection: кнопка "Из профиля" для импорта NPC
+  - Frontend: GMLobbyView: кнопка "Загрузить карту из профиля"
+  - Frontend: Session store: добавлен characterId ref
+  - Frontend: Router: маршруты create-character, edit-character, create-map
+  - Backend: create_session устанавливает user_id для GM Player
+
+2026-02-03: Личная страница пользователя (Profile) и user-level сущности
+  - Backend: Модель UserCharacter (персонажи пользователя, не привязанные к сессии, поддержка NPC)
+  - Backend: Модель UserMap (карты пользователя, не привязанные к сессии)
+  - Backend: Pydantic-схемы для CRUD операций с UserCharacter и UserMap
+  - Backend: API роутеры /api/me/characters и /api/me/maps с полным CRUD
+  - Backend: get_optional_current_user dependency для опциональной авторизации
+  - Backend: При join session с user_character_id — копирование UserCharacter в сессионный Character
+  - Frontend: ProfileView (/profile) с секциями персонажей, карт, NPC в зависимости от роли
+  - Frontend: JoinSessionView (/join) с выбором персонажа перед входом в сессию
+  - Frontend: Компоненты AddCard, UserCharacterCard, UserMapCard
+  - Frontend: Profile store (Pinia) для управления user-level сущностями
+  - Frontend: Обновлён session store для передачи user_character_id при join
+  - Frontend: Ссылка "Мой профиль" на главной странице
+
+2026-02-03: Система регистрации и авторизации пользователей
+  - Backend: Модель User (username, display_name, hashed_password, role)
+  - Backend: Pydantic-схемы UserRegister, UserLogin, UserResponse, AuthResponse
+  - Backend: API роутер /api/users с эндпоинтами register, login, me
+  - Backend: Хеширование паролей через passlib/bcrypt, JWT токены с sub "user:{id}"
+  - Backend: Dependency get_current_user для защиты эндпоинтов
+  - Backend: Добавлено поле user_id (FK, nullable) в модель Player для будущей привязки
+  - Frontend: Auth store (Pinia) с register, login, logout, fetchMe
+  - Frontend: LoginView и RegisterView с выбором роли (Игрок/GM)
+  - Frontend: Router guards — незалогиненные пользователи перенаправляются на /login
+  - Frontend: HomeView показывает имя пользователя и кнопку выхода
+
+2026-02-03: Реализована интерактивная карта (Canvas/Konva.js)
+  - Frontend: Добавлены библиотеки konva и vue-konva
+  - Frontend: Компонент GameMap с поддержкой зума, панорамирования и слоев (фон, сетка, токены)
+  - Frontend: Компонент MapToken с отображением имени и цвета
+  - Frontend: Интеграция карты в интерфейс GM (создание, управление) и Игрока (только просмотр)
+  - Backend: Модели Map и MapToken, API эндпоинты для управления картами
+  - Backend: WebSocket события (map_changed, token_added, token_updated, token_removed) для синхронизации
+  - Real-time: Перемещение токенов GM-ом мгновенно отображается у игроков
+  - Ограничение прав: Игроки видят карту в режиме readonly (не могут двигать токены)
+
+2026-02-02: Техническое обслуживание репозитория
+  - Создан .gitignore для исключения pycache, venv, баз данных и node_modules
+  - Удалены ранее отслеживаемые файлы __pycache__ из индекса Git
+
 2026-02-02: Настройка окружения для локальной разработки в Docker
   - Создан backend.dev.Dockerfile с поддержкой горячей перезагрузки (uvicorn --reload)
   - Создан frontend.dev.Dockerfile для запуска Vite в контейнере

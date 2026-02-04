@@ -16,6 +16,9 @@
 
       <div class="player-info">
         <span class="player-name">{{ currentPlayerName }}</span>
+        <button class="leave-btn" title="Покинуть сессию" @click="emit('leave')">
+          <LogOut :size="18" />
+        </button>
       </div>
     </div>
   </div>
@@ -23,11 +26,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Menu } from 'lucide-vue-next'
+import { Menu, LogOut } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
 
 const emit = defineEmits<{
   toggleSidebar: []
+  leave: []
 }>()
 
 const sessionStore = useSessionStore()
@@ -117,6 +121,23 @@ const currentPlayerName = computed(() => {
 .player-name {
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+}
+
+.leave-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.leave-btn:hover {
+  background: var(--alpha-overlay-light);
+  color: var(--color-danger, #ef4444);
 }
 
 @media (max-width: 768px) {

@@ -9,10 +9,12 @@ class Player(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     name = Column(String(100), nullable=False)
     token = Column(String(36), unique=True, nullable=False)
     is_gm = Column(Boolean, default=False)
     is_ready = Column(Boolean, default=False)
 
     session = relationship("Session", back_populates="players")
+    user = relationship("User")
     characters = relationship("Character", back_populates="player", cascade="all, delete-orphan")

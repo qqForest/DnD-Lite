@@ -1,7 +1,7 @@
 <template>
   <div class="gm-layout">
     <div class="top-bar">
-      <TopBar />
+      <TopBar @leave="$emit('leave')" />
     </div>
     <div class="initiative-bar">
       <slot name="initiative-bar" />
@@ -19,6 +19,10 @@
 </template>
 
 <script setup lang="ts">
+defineEmits<{
+  leave: []
+}>()
+
 import TopBar from '@/components/gm/TopBar.vue'
 import LeftPanel from '@/components/gm/LeftPanel.vue'
 import BottomBar from '@/components/gm/BottomBar.vue'

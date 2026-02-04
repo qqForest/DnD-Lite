@@ -29,3 +29,4 @@ class Character(Base):
     items = relationship("Item", back_populates="character", cascade="all, delete-orphan")
     spells = relationship("Spell", back_populates="character", cascade="all, delete-orphan")
     combat_participations = relationship("CombatParticipant", back_populates="character")
+    map_tokens = relationship("MapToken", back_populates="character", cascade="all, delete-orphan")

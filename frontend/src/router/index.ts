@@ -1,13 +1,55 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue')
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/RegisterView.vue')
+    },
+    {
       path: '/',
       name: 'home',
-      component: () => import('@/views/HomeView.vue')
+      component: () => import('@/views/HomeView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/ProfileView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/join',
+      name: 'join',
+      component: () => import('@/views/JoinSessionView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/profile/characters/create',
+      name: 'create-character',
+      component: () => import('@/views/CreateCharacterView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/profile/characters/:id/edit',
+      name: 'edit-character',
+      component: () => import('@/views/EditCharacterView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/profile/maps/create',
+      name: 'create-map',
+      component: () => import('@/views/CreateMapView.vue'),
+      meta: { requiresUser: true }
     },
     {
       path: '/gm/lobby',
@@ -37,7 +79,20 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
   const sessionStore = useSessionStore()
+
+  // Если требуется авторизация пользователя (не сессии)
+  if (to.meta.requiresUser && !authStore.isLoggedIn) {
+    next({ name: 'login' })
+    return
+  }
+
+  // Если пользователь уже залогинен и идёт на login/register — редирект на home
+  if ((to.name === 'login' || to.name === 'register') && authStore.isLoggedIn) {
+    next({ name: 'home' })
+    return
+  }
 
   if (to.meta.requiresAuth && !sessionStore.isAuthenticated) {
     next({ name: 'home' })

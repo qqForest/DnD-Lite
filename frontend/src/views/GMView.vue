@@ -1,14 +1,11 @@
 <template>
-  <GMLayout>
+  <GMLayout @leave="showLeaveModal = true">
     <template #initiative-bar>
       <InitiativeBar />
     </template>
 
     <div class="gm-content">
-      <div class="map-placeholder">
-        <p>Карта будет здесь</p>
-        <p class="hint">Canvas карта будет реализована в следующих итерациях</p>
-      </div>
+      <GameMap />
     </div>
 
     <!-- Roll Result Modal -->
@@ -17,11 +14,20 @@
       :result="diceStore.lastResult"
       @close="closeResult"
     />
+
+    <ConfirmModal
+      v-model="showLeaveModal"
+      title="Покинуть сессию?"
+      message="Вы уверены, что хотите покинуть текущую сессию?"
+      confirm-text="Покинуть"
+      :danger="true"
+      @confirm="handleLeave"
+    />
   </GMLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
@@ -31,6 +37,8 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import GMLayout from '@/layouts/GMLayout.vue'
 import RollResult from '@/components/dice/RollResult.vue'
 import InitiativeBar from '@/components/combat/InitiativeBar.vue'
+import GameMap from '@/components/map/GameMap.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -38,10 +46,16 @@ const charactersStore = useCharactersStore()
 const diceStore = useDiceStore()
 const combatStore = useCombatStore()
 
+const showLeaveModal = ref(false)
 const showResultModal = computed(() => diceStore.showResult)
 
 function closeResult() {
   diceStore.hideResult()
+}
+
+function handleLeave() {
+  sessionStore.clearSession()
+  router.push({ name: 'profile' })
 }
 
 useWebSocket()

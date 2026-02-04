@@ -1,5 +1,6 @@
 <template>
   <button
+    :type="type"
     :class="['btn', `btn-${variant}`, `btn-${size}`, { 'btn-icon-only': iconOnly }]"
     :disabled="disabled"
     @click="$emit('click', $event)"
@@ -19,6 +20,7 @@ import type { Component } from 'vue'
 defineProps<{
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
+  type?: 'button' | 'submit' | 'reset'
   icon?: Component
   iconOnly?: boolean
   disabled?: boolean

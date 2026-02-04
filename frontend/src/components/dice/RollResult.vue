@@ -11,17 +11,45 @@
           <button class="close-btn" @click="handleClose">×</button>
         </div>
 
+        <div v-if="isAdvantageRoll" class="roll-type-badge" :class="result.roll_type">
+          {{ result.roll_type === 'advantage' ? '⬆ Преимущество' : '⬇ Помеха' }}
+        </div>
+
         <div class="result-main">
-          <div class="dice-animation">🎲</div>
-          <div class="result-value">{{ result.total }}</div>
-          <div v-if="isCritical" class="result-label critical">Критический успех!</div>
-          <div v-else-if="isFail" class="result-label fail">Критический провал!</div>
+          <div v-if="isAdvantageRoll && result.all_rolls" class="advantage-rolls">
+            <div
+              v-for="(rollSet, idx) in result.all_rolls"
+              :key="idx"
+              :class="[
+                'advantage-die',
+                {
+                  chosen: revealed && idx === result.chosen_index,
+                  discarded: revealed && idx !== result.chosen_index,
+                  rolling: !revealed
+                }
+              ]"
+            >
+              <div :class="['die-emoji', { spinning: !revealed }]">🎲</div>
+              <div v-if="revealed" class="die-value pop-in">{{ rollSetTotal(rollSet) }}</div>
+              <div v-else class="die-value rolling-placeholder">?</div>
+              <div class="die-rolls" v-if="revealed && rollSet.length > 1">{{ rollSet.join(' + ') }}</div>
+              <div v-if="revealed" class="die-tag pop-in">{{ idx === result.chosen_index ? '✓' : '✗' }}</div>
+            </div>
+          </div>
+          <div v-else :class="['dice-animation', { spinning: !revealed }]">🎲</div>
+          <div v-if="revealed" class="result-value pop-in">{{ result.total }}</div>
+          <div v-else class="result-value rolling-placeholder">?</div>
+          <div v-if="revealed && isCritical" class="result-label critical pop-in">Критический успех!</div>
+          <div v-else-if="revealed && isFail" class="result-label fail pop-in">Критический провал!</div>
         </div>
 
         <div class="result-details">
           <div class="formula">{{ result.formula }}</div>
-          <div v-if="result.rolls && result.rolls.length > 0" class="rolls">
+          <div v-if="!isAdvantageRoll && result.rolls && result.rolls.length > 0" class="rolls">
             Броски: {{ result.rolls.join(', ') }}
+          </div>
+          <div v-if="isAdvantageRoll && result.modifier" class="rolls">
+            Модификатор: {{ result.modifier > 0 ? '+' : '' }}{{ result.modifier }}
           </div>
         </div>
       </div>
@@ -42,20 +70,39 @@ const emit = defineEmits<{
 }>()
 
 const isClosing = ref(false)
+const revealed = ref(false)
 let autoCloseTimer: number | null = null
+let revealTimer: number | null = null
 
-// Auto-close after 1.5 seconds
+const ROLL_DURATION = 1200 // время кручения кубиков (мс)
+const SHOW_NORMAL = 2500   // время показа результата обычного броска
+const SHOW_ADVANTAGE = 4000 // время показа результата advantage/disadvantage
+
 onMounted(() => {
+  // Фаза кручения
+  revealTimer = window.setTimeout(() => {
+    revealed.value = true
+  }, ROLL_DURATION)
+
+  // Автозакрытие после раскрытия
+  const totalDelay = ROLL_DURATION + (isAdvantageRoll.value ? SHOW_ADVANTAGE : SHOW_NORMAL)
   autoCloseTimer = window.setTimeout(() => {
     handleClose()
-  }, 1500)
+  }, totalDelay)
 })
 
 onUnmounted(() => {
-  if (autoCloseTimer) {
-    clearTimeout(autoCloseTimer)
-  }
+  if (autoCloseTimer) clearTimeout(autoCloseTimer)
+  if (revealTimer) clearTimeout(revealTimer)
 })
+
+const isAdvantageRoll = computed(() => {
+  return props.result.roll_type === 'advantage' || props.result.roll_type === 'disadvantage'
+})
+
+function rollSetTotal(rollSet: number[]): number {
+  return rollSet.reduce((a, b) => a + b, 0)
+}
 
 const isCritical = computed(() => {
   if (props.result.rolls && props.result.rolls.length === 1) {
@@ -78,9 +125,11 @@ function getDiceMax(): number {
 }
 
 function handleClose() {
-  if (autoCloseTimer) {
-    clearTimeout(autoCloseTimer)
-  }
+  if (autoCloseTimer) clearTimeout(autoCloseTimer)
+  if (revealTimer) clearTimeout(revealTimer)
+
+  // Показываем результат если ещё не раскрыт
+  revealed.value = true
 
   // Запускаем анимацию закрытия
   isClosing.value = true
@@ -155,6 +204,19 @@ function handleClose() {
   animation: spin 0.5s ease-out;
 }
 
+.dice-animation.spinning {
+  animation: continuousSpin 0.4s linear infinite;
+}
+
+.rolling-placeholder {
+  opacity: 0.4;
+  animation: pulse 0.6s ease-in-out infinite;
+}
+
+.pop-in {
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
 .result-value {
   font-family: var(--font-family-display);
   font-size: var(--font-size-4xl);
@@ -197,6 +259,108 @@ function handleClose() {
 .rolls {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+/* Roll type badge */
+.roll-type-badge {
+  text-align: center;
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-2);
+}
+
+.roll-type-badge.advantage {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--color-accent-gold, #ffd700);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.roll-type-badge.disadvantage {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Advantage/Disadvantage dual dice */
+.advantage-rolls {
+  display: flex;
+  gap: var(--spacing-4);
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--spacing-3);
+}
+
+.advantage-die {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  transition: all var(--duration-fast);
+  position: relative;
+  min-width: 100px;
+}
+
+.advantage-die.chosen {
+  border-color: var(--color-accent-gold, #ffd700);
+  background: rgba(255, 215, 0, 0.1);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.25);
+  transform: scale(1.1);
+}
+
+.advantage-die.discarded {
+  opacity: 0.4;
+  filter: grayscale(60%);
+  transform: scale(0.9);
+}
+
+.die-emoji {
+  font-size: 40px;
+  animation: spin 0.5s ease-out;
+}
+
+.die-emoji.spinning {
+  animation: continuousSpin 0.4s linear infinite;
+}
+
+.advantage-die.rolling {
+  border-color: var(--alpha-overlay-medium);
+}
+
+.die-value {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.advantage-die.discarded .die-value {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.die-rolls {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+}
+
+.die-tag {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  margin-top: var(--spacing-1);
+}
+
+.advantage-die.chosen .die-tag {
+  color: var(--color-accent-gold, #ffd700);
+}
+
+.advantage-die.discarded .die-tag {
+  color: var(--color-text-muted);
 }
 
 /* Critical/Fail effects */
@@ -245,6 +409,34 @@ function handleClose() {
   }
   100% {
     transform: rotate(360deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes continuousSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.15); }
+  50% { transform: rotate(180deg) scale(1); }
+  75% { transform: rotate(270deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
     opacity: 1;
   }
 }

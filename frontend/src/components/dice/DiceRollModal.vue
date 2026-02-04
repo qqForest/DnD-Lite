@@ -21,6 +21,38 @@
               </button>
             </div>
 
+            <div class="roll-type-section">
+              <label class="section-label">Тип броска:</label>
+              <div class="roll-type-options">
+                <label
+                  :class="['roll-type-option', { active: rollType === 'advantage' }]"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="rollType === 'advantage'"
+                    @change="toggleRollType('advantage')"
+                    class="roll-type-checkbox"
+                  />
+                  <span class="roll-type-icon">⬆</span>
+                  <span class="roll-type-label">Преимущество</span>
+                  <span class="roll-type-hint">Лучший из двух</span>
+                </label>
+                <label
+                  :class="['roll-type-option', { active: rollType === 'disadvantage' }]"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="rollType === 'disadvantage'"
+                    @change="toggleRollType('disadvantage')"
+                    class="roll-type-checkbox"
+                  />
+                  <span class="roll-type-icon">⬇</span>
+                  <span class="roll-type-label">Помеха</span>
+                  <span class="roll-type-hint">Худший из двух</span>
+                </label>
+              </div>
+            </div>
+
             <div class="modifier-section">
               <label for="modifier">Модификатор:</label>
               <input
@@ -85,6 +117,11 @@ const selectedDice = ref<string>('d20')
 const modifier = ref<number>(0)
 const customFormula = ref('')
 const rolling = ref(false)
+const rollType = ref<'normal' | 'advantage' | 'disadvantage'>('normal')
+
+function toggleRollType(type: 'advantage' | 'disadvantage') {
+  rollType.value = rollType.value === type ? 'normal' : type
+}
 
 const canRoll = computed(() => {
   return selectedDice.value || customFormula.value.trim().length > 0
@@ -96,6 +133,7 @@ watch(() => props.modelValue, (newValue) => {
     selectedDice.value = 'd20'
     modifier.value = 0
     customFormula.value = ''
+    rollType.value = 'normal'
   }
 })
 
@@ -119,7 +157,7 @@ async function handleRoll() {
         : selectedDice.value
     }
 
-    await diceStore.roll(formula)
+    await diceStore.roll(formula, undefined, rollType.value)
     close()
   } catch (error: any) {
     toast.error(error.response?.data?.detail || 'Ошибка броска')
@@ -239,6 +277,76 @@ async function handleRoll() {
   text-transform: uppercase;
   font-family: var(--font-family-mono);
   color: var(--color-text-primary);
+}
+
+.roll-type-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.section-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.roll-type-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-3);
+}
+
+.roll-type-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3) var(--spacing-2);
+  background: var(--color-bg-elevated);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  text-align: center;
+}
+
+.roll-type-option:hover {
+  background: var(--alpha-overlay-medium);
+}
+
+.roll-type-option.active {
+  border-color: var(--color-accent-primary);
+  background: var(--color-bg-elevated);
+  box-shadow: 0 0 16px rgba(233, 69, 96, 0.3);
+}
+
+.roll-type-checkbox {
+  display: none;
+}
+
+.roll-type-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.roll-type-option:first-child .roll-type-icon {
+  color: var(--color-accent-gold, #ffd700);
+}
+
+.roll-type-option:last-child .roll-type-icon {
+  color: var(--color-danger, #ef4444);
+}
+
+.roll-type-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.roll-type-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .modifier-section,

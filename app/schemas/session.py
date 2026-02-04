@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class SessionCreate(BaseModel):
-    pass
+    user_map_id: Optional[str] = None
 
 
 class SessionResponse(BaseModel):
@@ -20,6 +20,7 @@ class SessionResponse(BaseModel):
 class SessionJoin(BaseModel):
     code: str
     name: str
+    user_character_id: Optional[int] = None
 
 
 class SessionJoinResponse(BaseModel):
@@ -28,6 +29,7 @@ class SessionJoinResponse(BaseModel):
     session_code: str
     access_token: str
     refresh_token: str
+    character_id: Optional[int] = None
 
     class Config:
         from_attributes = True
