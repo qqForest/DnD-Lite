@@ -34,10 +34,35 @@
         </div>
       </div>
 
-      <div class="map-import-section">
-        <BaseButton variant="secondary" @click="showImportMapModal = true">
-          Загрузить карту из профиля
-        </BaseButton>
+      <div class="maps-section">
+        <div class="section-header">
+          <h2 class="section-title">Карты</h2>
+          <BaseButton variant="secondary" size="sm" @click="showImportMapModal = true">
+            Загрузить из профиля
+          </BaseButton>
+        </div>
+        <div v-if="mapStore.loading" class="maps-loading">Загрузка карт...</div>
+        <div v-else-if="mapStore.maps.length === 0" class="maps-empty">
+          Нет карт. Загрузите карту из профиля, чтобы она была доступна в игре.
+        </div>
+        <div v-else class="maps-grid">
+          <div
+            v-for="map in mapStore.maps"
+            :key="map.id"
+            class="session-map-card"
+            :class="{ active: map.is_active }"
+            @click="handleSetActiveMap(map.id)"
+          >
+            <div class="map-card-header">
+              <span class="map-card-name">{{ map.name }}</span>
+              <span v-if="map.is_active" class="active-badge">Активна</span>
+            </div>
+            <div class="map-card-info">
+              <span>{{ map.width }} x {{ map.height }}</span>
+              <span>Сетка: {{ map.grid_scale }}px</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <SessionSettings />
@@ -78,6 +103,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
+import { useMapStore } from '@/stores/map'
 import { useDiceStore } from '@/stores/dice'
 import { useWebSocket } from '@/composables/useWebSocket'
 import SessionCodeDisplay from '@/components/gm/SessionCodeDisplay.vue'
@@ -95,6 +121,7 @@ import RollResult from '@/components/dice/RollResult.vue'
 const router = useRouter()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
+const mapStore = useMapStore()
 const diceStore = useDiceStore()
 
 const showImportMapModal = ref(false)
@@ -103,7 +130,15 @@ const showLeaveModal = ref(false)
 useWebSocket()
 
 function handleMapImported() {
-  // Map imported into session, could refresh map list if needed
+  mapStore.fetchSessionMaps()
+}
+
+async function handleSetActiveMap(mapId: string) {
+  try {
+    await mapStore.setActiveMap(mapId)
+  } catch (error) {
+    console.error('Failed to set active map:', error)
+  }
 }
 
 function handleLeave() {
@@ -129,12 +164,14 @@ onMounted(async () => {
   try {
     await sessionStore.fetchPlayers()
     await charactersStore.fetchAll()
+    await mapStore.fetchSessionMaps()
   } catch (error) {
     console.error('Failed to load lobby data:', error)
   }
 
   // Настройка WebSocket handlers
   charactersStore.setupWebSocketHandlers()
+  mapStore.setupWebSocketHandlers()
   diceStore.setupWebSocketHandlers()
 })
 
@@ -250,9 +287,89 @@ diceStore.setupWebSocketHandlers()
   }
 }
 
-.map-import-section {
+.maps-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.maps-loading,
+.maps-empty {
+  text-align: center;
+  padding: var(--spacing-6);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+}
+
+.maps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-3);
+}
+
+.session-map-card {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  cursor: pointer;
+  transition: border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.session-map-card:hover {
+  border-color: var(--color-primary);
+}
+
+.session-map-card.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.map-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.map-card-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.active-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary, #fff);
+  border-radius: var(--radius-full, 999px);
+  font-weight: 600;
+}
+
+.map-card-info {
   display: flex;
   gap: var(--spacing-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .dice-testing {

@@ -76,7 +76,7 @@
 
         <section class="section">
           <h2 class="section-title">Создать сессию</h2>
-          <BaseButton variant="primary" :disabled="creatingSession" @click="handleCreateSession">
+          <BaseButton variant="primary" :disabled="creatingSession" @click="showCreateModal = true">
             Создать сессию
           </BaseButton>
         </section>
@@ -90,6 +90,11 @@
       confirm-text="Удалить"
       :danger="true"
       @confirm="executeDelete"
+    />
+
+    <CreateSessionModal
+      v-model="showCreateModal"
+      @create="handleCreateSession"
     />
   </div>
 </template>
@@ -106,6 +111,7 @@ import AddCard from '@/components/profile/AddCard.vue'
 import UserCharacterCard from '@/components/profile/UserCharacterCard.vue'
 import UserMapCard from '@/components/profile/UserMapCard.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import CreateSessionModal from '@/components/gm/CreateSessionModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -114,6 +120,7 @@ const sessionStore = useSessionStore()
 const toast = useToast()
 
 const creatingSession = ref(false)
+const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
 const deleteTarget = ref<{ type: 'character' | 'map'; id: number | string; name: string }>({ type: 'character', id: 0, name: '' })
 
@@ -157,10 +164,11 @@ async function executeDelete() {
   }
 }
 
-async function handleCreateSession() {
+async function handleCreateSession(userMapId?: string) {
   creatingSession.value = true
+  showCreateModal.value = false
   try {
-    await sessionStore.createSession()
+    await sessionStore.createSession(userMapId)
     router.push({ name: 'gm-lobby' })
   } catch (error) {
     console.error('Failed to create session:', error)

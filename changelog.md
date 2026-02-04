@@ -4,6 +4,7 @@
   - Frontend: CreateSessionModal — модалка выбора карты при создании сессии
   - Frontend: Список карт из профиля с возможностью выбора, создание без карты
   - Frontend: sessionApi.createSession и sessionStore.createSession принимают user_map_id
+  - Frontend: GMLobbyView — секция «Карты» с отображением карт сессии, выбором активной и импортом из профиля
 
 2026-02-04: Броски с преимуществом и помехой (Advantage/Disadvantage)
   - Backend: DiceRoll схема принимает roll_type ("normal" | "advantage" | "disadvantage")
