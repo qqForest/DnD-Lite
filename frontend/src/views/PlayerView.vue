@@ -1,7 +1,7 @@
 <template>
   <PlayerLayout>
     <template #topbar>
-      <PlayerTopBar @toggleSidebar="showSidebar = !showSidebar" />
+      <PlayerTopBar @toggleSidebar="showSidebar = !showSidebar" @leave="showLeaveModal = true" />
     </template>
 
     <div class="map-container">
@@ -27,6 +27,15 @@
 
     <!-- Initiative Roll Modal -->
     <InitiativeRollModal />
+
+    <ConfirmModal
+      v-model="showLeaveModal"
+      title="Покинуть сессию?"
+      message="Вы уверены, что хотите покинуть текущую сессию?"
+      confirm-text="Покинуть"
+      :danger="true"
+      @confirm="handleLeave"
+    />
   </PlayerLayout>
 </template>
 
@@ -47,6 +56,7 @@ import PlayerSidebar from '@/components/player/PlayerSidebar.vue'
 import RollResult from '@/components/dice/RollResult.vue'
 import InitiativeRollModal from '@/components/combat/InitiativeRollModal.vue'
 import GameMap from '@/components/map/GameMap.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -55,10 +65,16 @@ const diceStore = useDiceStore()
 const combatStore = useCombatStore()
 
 const showSidebar = ref(false)
+const showLeaveModal = ref(false)
 const showResultModal = computed(() => diceStore.showResult)
 
 function closeResult() {
   diceStore.hideResult()
+}
+
+function handleLeave() {
+  sessionStore.clearSession()
+  router.push({ name: 'profile' })
 }
 
 useWebSocket()

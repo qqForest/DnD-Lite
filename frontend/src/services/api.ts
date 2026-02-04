@@ -21,7 +21,15 @@ import type {
   MapCreate,
   MapToken,
   MapTokenCreate,
-  MapTokenUpdate
+  MapTokenUpdate,
+  AuthResponse,
+  User,
+  UserCharacter,
+  UserCharacterCreate,
+  UserCharacterUpdate,
+  UserMap,
+  UserMapCreate,
+  UserStats
 } from '@/types/models'
 
 const api: AxiosInstance = axios.create({
@@ -91,8 +99,7 @@ api.interceptors.response.use(
         // Start a new axios instance to avoid interceptors? Or just use axios directly.
         // We need to send { access_token: "", refresh_token: ..., token_type: "bearer" }
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-        // Clean URL handling
-        const url = `${baseUrl.replace(/\/$/, '')}/session/auth/refresh`
+        const url = `${baseUrl.replace(/\/$/, '')}/auth/refresh`
 
         const response = await axios.post(url, {
           access_token: "",
@@ -126,9 +133,12 @@ api.interceptors.response.use(
 function logoutAndRedirect() {
   localStorage.removeItem('accessToken')
   localStorage.removeItem('refreshToken')
+  localStorage.removeItem('userAccessToken')
+  localStorage.removeItem('userRefreshToken')
   localStorage.removeItem('token')
   localStorage.removeItem('playerId')
-  window.location.href = '/'
+  localStorage.removeItem('user')
+  window.location.href = '/login'
 }
 
 // Session API
@@ -321,6 +331,79 @@ export const mapsApi = {
 
   deleteToken: async (tokenId: string): Promise<void> => {
     await api.delete(`/tokens/${tokenId}`)
+  }
+}
+
+// Auth API
+export const authApi = {
+  register: async (data: { username: string; display_name: string; password: string; role: string }): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/users/register', data)
+    return response.data
+  },
+
+  login: async (data: { username: string; password: string }): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/users/login', data)
+    return response.data
+  },
+
+  getMe: async (): Promise<User> => {
+    const response = await api.get<User>('/users/me')
+    return response.data
+  },
+
+  getStats: async (): Promise<UserStats> => {
+    const response = await api.get<UserStats>('/users/me/stats')
+    return response.data
+  }
+}
+
+// User Characters API
+export const userCharactersApi = {
+  list: async (isNpc?: boolean): Promise<UserCharacter[]> => {
+    const params = isNpc !== undefined ? { is_npc: isNpc } : {}
+    const response = await api.get<UserCharacter[]>('/me/characters', { params })
+    return response.data
+  },
+
+  get: async (id: number): Promise<UserCharacter> => {
+    const response = await api.get<UserCharacter>(`/me/characters/${id}`)
+    return response.data
+  },
+
+  create: async (data: UserCharacterCreate): Promise<UserCharacter> => {
+    const response = await api.post<UserCharacter>('/me/characters', data)
+    return response.data
+  },
+
+  update: async (id: number, data: UserCharacterUpdate): Promise<UserCharacter> => {
+    const response = await api.patch<UserCharacter>(`/me/characters/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/me/characters/${id}`)
+  }
+}
+
+// User Maps API
+export const userMapsApi = {
+  list: async (): Promise<UserMap[]> => {
+    const response = await api.get<UserMap[]>('/me/maps')
+    return response.data
+  },
+
+  get: async (id: string): Promise<UserMap> => {
+    const response = await api.get<UserMap>(`/me/maps/${id}`)
+    return response.data
+  },
+
+  create: async (data: UserMapCreate): Promise<UserMap> => {
+    const response = await api.post<UserMap>('/me/maps', data)
+    return response.data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/me/maps/${id}`)
   }
 }
 

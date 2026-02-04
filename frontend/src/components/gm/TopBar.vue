@@ -27,13 +27,20 @@
       <button class="action-button" title="Профиль">
         <User :size="20" />
       </button>
+      <button class="action-button leave-button" title="Покинуть сессию" @click="$emit('leave')">
+        <LogOut :size="20" />
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Settings, HelpCircle, User } from 'lucide-vue-next'
+import { Settings, HelpCircle, User, LogOut } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
+
+defineEmits<{
+  leave: []
+}>()
 
 const sessionStore = useSessionStore()
 </script>
@@ -105,5 +112,9 @@ const sessionStore = useSessionStore()
 .action-button:hover {
   background: var(--alpha-overlay-light);
   color: var(--color-text-primary);
+}
+
+.leave-button:hover {
+  color: var(--color-danger, #ef4444);
 }
 </style>

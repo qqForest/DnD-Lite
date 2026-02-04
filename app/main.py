@@ -14,6 +14,10 @@ from app.models.player import Player
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+# Apply pending column migrations (safe to re-run)
+from app.migrations import run_migrations
+run_migrations()
+
 app = FastAPI(
     title="DnD Lite GM",
     description="Lightweight D&D Game Master assistant",

@@ -12,6 +12,9 @@
               ○ Отключено
             </span>
           </div>
+          <BaseButton variant="ghost" size="sm" @click="showLeaveModal = true">
+            Покинуть
+          </BaseButton>
           <StartGameButton />
         </div>
       </div>
@@ -31,6 +34,12 @@
         </div>
       </div>
 
+      <div class="map-import-section">
+        <BaseButton variant="secondary" @click="showImportMapModal = true">
+          Загрузить карту из профиля
+        </BaseButton>
+      </div>
+
       <SessionSettings />
 
       <!-- Temporary: Dice testing -->
@@ -39,6 +48,20 @@
         <RollHistory />
       </div>
     </div>
+
+    <ImportMapModal
+      v-model="showImportMapModal"
+      @imported="handleMapImported"
+    />
+
+    <ConfirmModal
+      v-model="showLeaveModal"
+      title="Покинуть сессию?"
+      message="Вы уверены, что хотите покинуть текущую сессию?"
+      confirm-text="Покинуть"
+      :danger="true"
+      @confirm="handleLeave"
+    />
 
     <!-- Roll Result Modal -->
     <RollResult
@@ -51,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
@@ -62,6 +85,9 @@ import PlayersLobbyList from '@/components/gm/PlayersLobbyList.vue'
 import NPCSection from '@/components/gm/NPCSection.vue'
 import SessionSettings from '@/components/gm/SessionSettings.vue'
 import StartGameButton from '@/components/gm/StartGameButton.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import ImportMapModal from '@/components/gm/ImportMapModal.vue'
 import DiceSelector from '@/components/dice/DiceSelector.vue'
 import RollHistory from '@/components/dice/RollHistory.vue'
 import RollResult from '@/components/dice/RollResult.vue'
@@ -71,7 +97,19 @@ const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 const diceStore = useDiceStore()
 
+const showImportMapModal = ref(false)
+const showLeaveModal = ref(false)
+
 useWebSocket()
+
+function handleMapImported() {
+  // Map imported into session, could refresh map list if needed
+}
+
+function handleLeave() {
+  sessionStore.clearSession()
+  router.push({ name: 'profile' })
+}
 
 onMounted(async () => {
   // Проверка аутентификации
@@ -107,9 +145,7 @@ diceStore.setupWebSocketHandlers()
 <style scoped>
 .gm-lobby-view {
   min-height: 100vh;
-  height: 100vh;
   background: var(--color-bg-primary);
-  overflow-y: auto;
 }
 
 .fixed-header {
@@ -212,6 +248,11 @@ diceStore.setupWebSocketHandlers()
   .lobby-spacer {
     height: 140px;
   }
+}
+
+.map-import-section {
+  display: flex;
+  gap: var(--spacing-3);
 }
 
 .dice-testing {

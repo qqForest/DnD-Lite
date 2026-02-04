@@ -1,12 +1,16 @@
 import uuid
 import string
 import random
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
 from app.database import get_db
 from app.models.session import Session
 from app.models.player import Player
+from app.models.character import Character
+from app.models.user_character import UserCharacter
+from app.models.user import User
 from app.schemas.session import (
     SessionResponse,
     SessionJoin,
@@ -15,7 +19,7 @@ from app.schemas.session import (
     PlayerReadyRequest,
 )
 from app.schemas.player import PlayerResponse
-from app.core.auth import create_access_token, create_refresh_token, get_current_player
+from app.core.auth import create_access_token, create_refresh_token, get_current_player, get_optional_current_user
 from app.schemas.auth import Token
 
 router = APIRouter()
@@ -28,7 +32,10 @@ def generate_room_code(length: int = 6) -> str:
 
 
 @router.post("/session", response_model=SessionResponse)
-def create_session(db: DBSession = Depends(get_db)):
+def create_session(
+    db: DBSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
     """Create a new game session. Returns room code and GM token."""
     # Generate unique room code
     while True:
@@ -49,7 +56,8 @@ def create_session(db: DBSession = Depends(get_db)):
         session_id=session.id,
         name="Game Master",
         token=gm_token,
-        is_gm=True
+        is_gm=True,
+        user_id=current_user.id if current_user else None
     )
     db.add(gm_player)
     db.commit()
@@ -66,7 +74,11 @@ def create_session(db: DBSession = Depends(get_db)):
 
 
 @router.post("/session/join", response_model=SessionJoinResponse)
-def join_session(data: SessionJoin, db: DBSession = Depends(get_db)):
+async def join_session(
+    data: SessionJoin,
+    db: DBSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
     """Join an existing session by room code."""
     session = db.query(Session).filter(
         Session.code == data.code.upper(),
@@ -90,11 +102,47 @@ def join_session(data: SessionJoin, db: DBSession = Depends(get_db)):
         session_id=session.id,
         name=data.name,
         token=player_token,
-        is_gm=False
+        is_gm=False,
+        user_id=current_user.id if current_user else None
     )
     db.add(player)
     db.commit()
     db.refresh(player)
+
+    # Copy UserCharacter to session Character if provided
+    character_id = None
+    if data.user_character_id and current_user:
+        user_char = db.query(UserCharacter).filter(
+            UserCharacter.id == data.user_character_id,
+            UserCharacter.user_id == current_user.id
+        ).first()
+        if user_char:
+            character = Character(
+                player_id=player.id,
+                name=user_char.name,
+                class_name=user_char.class_name,
+                level=user_char.level,
+                strength=user_char.strength,
+                dexterity=user_char.dexterity,
+                constitution=user_char.constitution,
+                intelligence=user_char.intelligence,
+                wisdom=user_char.wisdom,
+                charisma=user_char.charisma,
+                max_hp=user_char.max_hp,
+                current_hp=user_char.current_hp,
+            )
+            db.add(character)
+            user_char.sessions_played = (user_char.sessions_played or 0) + 1
+            db.commit()
+            db.refresh(character)
+            character_id = character.id
+
+            # Broadcast character creation to all connected clients (including GM)
+            from app.websocket.manager import manager
+            from app.schemas.character import CharacterResponse
+            await manager.broadcast_event("character_created", {
+                "character": CharacterResponse.model_validate(character).model_dump()
+            })
 
     access_token = create_access_token(data={"sub": player_token})
     refresh_token = create_refresh_token(data={"sub": player_token})
@@ -104,7 +152,8 @@ def join_session(data: SessionJoin, db: DBSession = Depends(get_db)):
         token=player_token,
         session_code=session.code,
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        character_id=character_id
     )
 
 

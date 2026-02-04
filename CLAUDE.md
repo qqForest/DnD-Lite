@@ -62,6 +62,24 @@ app/
 - `CombatService`: Порядок инициативы, управление ходами, урон/лечение
 - `ModifierService`: Расчёты модификаторов характеристик D&D 5e
 
+### Миграции БД
+
+Alembic не используется. Вместо этого — лёгкий startup-скрипт `app/migrations.py`.
+
+При запуске `run_migrations()` проверяет схему SQLite и добавляет недостающие столбцы. Вызывается в `main.py` после `Base.metadata.create_all()`.
+
+Чтобы добавить новую миграцию, добавь запись в список `MIGRATIONS` в `app/migrations.py`:
+
+```python
+{
+    "table": "имя_таблицы",
+    "column": "имя_столбца",
+    "sql": "ALTER TABLE имя_таблицы ADD COLUMN имя_столбца ТИП DEFAULT значение",
+},
+```
+
+Скрипт идемпотентный — пропускает уже существующие столбцы.
+
 ### События WebSocket
 
 Сервер транслирует: `player_joined`, `player_left`, `dice_result`, `combat_started`, `combat_ended`, `turn_changed`, `character_updated`, `hp_changed`

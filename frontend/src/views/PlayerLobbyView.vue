@@ -10,12 +10,20 @@
           <span v-else class="connection-status disconnected">
             ○ Отключено
           </span>
+          <BaseButton variant="ghost" size="sm" @click="showLeaveModal = true">
+            Покинуть
+          </BaseButton>
         </div>
       </header>
 
       <SessionCodeDisplay />
 
-      <CharacterSelection />
+      <BasePanel v-if="myCharacter" variant="elevated" class="character-preview">
+        <template #header>
+          <h3 class="panel-title">Ваш персонаж</h3>
+        </template>
+        <CharacterCard :character="myCharacter" />
+      </BasePanel>
 
       <ReadyButton />
 
@@ -31,11 +39,20 @@
         </BasePanel>
       </div>
     </div>
+
+    <ConfirmModal
+      v-model="showLeaveModal"
+      title="Покинуть сессию?"
+      message="Вы уверены, что хотите покинуть текущую сессию?"
+      confirm-text="Покинуть"
+      :danger="true"
+      @confirm="handleLeave"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Clock } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
@@ -43,15 +60,30 @@ import { useCharactersStore } from '@/stores/characters'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { wsService } from '@/services/websocket'
 import SessionCodeDisplay from '@/components/gm/SessionCodeDisplay.vue'
-import CharacterSelection from '@/components/player/CharacterSelection.vue'
+import CharacterCard from '@/components/character/CharacterCard.vue'
 import ReadyButton from '@/components/player/ReadyButton.vue'
 import BasePanel from '@/components/common/BasePanel.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 
+const showLeaveModal = ref(false)
+
+const myCharacter = computed(() => {
+  if (!sessionStore.currentPlayer) return null
+  const chars = charactersStore.byPlayer(sessionStore.currentPlayer.id)
+  return chars.length > 0 ? chars[0] : null
+})
+
 useWebSocket()
+
+function handleLeave() {
+  sessionStore.clearSession()
+  router.push({ name: 'profile' })
+}
 
 onMounted(async () => {
   // Проверка аутентификации
@@ -105,7 +137,6 @@ function setupWebSocketHandlers() {
   min-height: 100vh;
   padding: var(--spacing-6);
   background: var(--color-bg-primary);
-  overflow-y: auto;
 }
 
 .lobby-container {
@@ -150,6 +181,10 @@ function setupWebSocketHandlers() {
 
 .connection-status.disconnected {
   color: var(--color-text-muted);
+}
+
+.panel-title {
+  margin: 0;
 }
 
 .waiting-status {

@@ -16,6 +16,7 @@ export const useSessionStore = defineStore('session', () => {
   const isConnected = ref<boolean>(false)
   const sessionState = ref<Session | null>(null)
   const sessionStarted = ref<boolean>(false)
+  const characterId = ref<number | null>(null)
 
   const isAuthenticated = computed(() => !!token.value)
 
@@ -36,10 +37,10 @@ export const useSessionStore = defineStore('session', () => {
     code.value = response.code
     token.value = response.gm_token
     isGm.value = true
-    // GM player_id usually comes from fetching players, 
-    // but the backend doesn't return it in createSession yet.
-    // However, we can fetch players immediately.
-    // However, we can fetch players immediately.
+
+    // Сохраняем пользовательские токены перед перезаписью сессионными
+    saveUserTokens()
+
     localStorage.setItem('token', response.gm_token)
     localStorage.setItem('accessToken', response.access_token)
     localStorage.setItem('refreshToken', response.refresh_token)
@@ -57,15 +58,22 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function joinSession(sessionCode: string, name: string) {
+  async function joinSession(sessionCode: string, name: string, userCharacterId?: number) {
     const response: SessionJoinResponse = await sessionApi.joinSession({
       code: sessionCode,
-      name
+      name,
+      user_character_id: userCharacterId
     })
     token.value = response.token
     code.value = response.session_code
     playerId.value = response.player_id
     isGm.value = false
+    if (response.character_id) {
+      characterId.value = response.character_id
+    }
+    // Сохраняем пользовательские токены перед перезаписью сессионными
+    saveUserTokens()
+
     localStorage.setItem('token', response.token)
     localStorage.setItem('accessToken', response.access_token)
     localStorage.setItem('refreshToken', response.refresh_token)
@@ -189,6 +197,17 @@ export const useSessionStore = defineStore('session', () => {
     })
   }
 
+  function saveUserTokens() {
+    const currentAccess = localStorage.getItem('accessToken')
+    const currentRefresh = localStorage.getItem('refreshToken')
+    if (currentAccess) {
+      localStorage.setItem('userAccessToken', currentAccess)
+    }
+    if (currentRefresh) {
+      localStorage.setItem('userRefreshToken', currentRefresh)
+    }
+  }
+
   function clearSession() {
     id.value = null
     playerId.value = null
@@ -198,13 +217,29 @@ export const useSessionStore = defineStore('session', () => {
     players.value = []
     isConnected.value = false
     sessionState.value = null
+    sessionStarted.value = false
+    characterId.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('playerId')
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    accessToken.value = null
-    refreshToken.value = null
     wsService.disconnect()
+
+    // Восстанавливаем пользовательские токены вместо удаления
+    const savedAccess = localStorage.getItem('userAccessToken')
+    const savedRefresh = localStorage.getItem('userRefreshToken')
+    if (savedAccess) {
+      localStorage.setItem('accessToken', savedAccess)
+      accessToken.value = savedAccess
+    } else {
+      localStorage.removeItem('accessToken')
+      accessToken.value = null
+    }
+    if (savedRefresh) {
+      localStorage.setItem('refreshToken', savedRefresh)
+      refreshToken.value = savedRefresh
+    } else {
+      localStorage.removeItem('refreshToken')
+      refreshToken.value = null
+    }
   }
 
   return {
@@ -216,6 +251,7 @@ export const useSessionStore = defineStore('session', () => {
     isConnected,
     sessionState,
     sessionStarted,
+    characterId,
     isAuthenticated,
     currentPlayer,
     otherPlayers,

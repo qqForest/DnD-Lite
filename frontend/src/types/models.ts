@@ -1,3 +1,17 @@
+export interface User {
+  id: number
+  username: string
+  display_name: string
+  role: string
+  created_at: string
+}
+
+export interface AuthResponse {
+  user: User
+  access_token: string
+  refresh_token: string
+}
+
 export interface Session {
   id: number
   code: string
@@ -18,6 +32,7 @@ export interface SessionResponse {
 export interface SessionJoin {
   code: string
   name: string
+  user_character_id?: number
 }
 
 export interface SessionJoinResponse {
@@ -26,6 +41,82 @@ export interface SessionJoinResponse {
   session_code: string
   access_token: string
   refresh_token: string
+  character_id?: number
+}
+
+export interface UserCharacter {
+  id: number
+  user_id: number
+  name: string
+  class_name: string | null
+  level: number
+  is_npc: boolean
+  strength: number
+  dexterity: number
+  constitution: number
+  intelligence: number
+  wisdom: number
+  charisma: number
+  max_hp: number
+  current_hp: number
+  sessions_played: number
+  created_at: string
+}
+
+export interface UserCharacterCreate {
+  name: string
+  class_name?: string | null
+  level?: number
+  is_npc?: boolean
+  strength?: number
+  dexterity?: number
+  constitution?: number
+  intelligence?: number
+  wisdom?: number
+  charisma?: number
+  max_hp?: number
+  current_hp?: number
+}
+
+export interface UserCharacterUpdate {
+  name?: string
+  class_name?: string | null
+  level?: number
+  is_npc?: boolean
+  strength?: number
+  dexterity?: number
+  constitution?: number
+  intelligence?: number
+  wisdom?: number
+  charisma?: number
+  max_hp?: number
+  current_hp?: number
+}
+
+export interface UserMap {
+  id: string
+  user_id: number
+  name: string
+  background_url: string | null
+  width: number
+  height: number
+  grid_scale: number
+  created_at: string
+}
+
+export interface UserMapCreate {
+  name: string
+  background_url?: string | null
+  width?: number
+  height?: number
+  grid_scale?: number
+}
+
+export interface UserStats {
+  total_characters: number
+  total_npcs: number
+  total_sessions: number
+  top_characters: UserCharacter[]
 }
 
 export interface Player {
