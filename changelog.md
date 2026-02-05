@@ -1,3 +1,8 @@
+2026-02-05: Исправлены критические баги WebSocket: race conditions (asyncio.Lock),
+  утечки мёртвых соединений, heartbeat/ping, DB session per message, reconnect,
+  таймаут receive, лимит размера сообщений, обработка ошибок в handlers,
+  logging вместо print.
+
 2026-02-04: Исправлена ошибка 405 на VPS при создании персонажей/NPC/карт
   - Причина: catch-all GET маршрут для SPA (`/{full_path:path}`) перехватывал POST/PUT/DELETE запросы к API при наличии собранного фронтенда
   - Заменён catch-all route на exception handler для StarletteHTTPException
