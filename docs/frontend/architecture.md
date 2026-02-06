@@ -6,113 +6,95 @@
 
 | Технология | Назначение |
 |------------|------------|
-| **Vue 3** | UI фреймворк (Composition API) |
+| **Vue 3** | UI фреймворк (Composition API + `<script setup>`) |
 | **Vite** | Сборщик и dev server |
 | **Pinia** | State management |
-| **Vue Router** | Роутинг |
+| **Vue Router** | Роутинг с guards |
 | **TypeScript** | Типизация |
-| **Canvas API** | Рендеринг карты |
+| **Konva.js** | Рендеринг карты (vue-konva) |
+| **Axios** | HTTP клиент с interceptors |
+| **Lucide** | Иконки |
+| **Google Fonts** | Шрифт Cinzel (D&D стиль) |
 
 ## Структура проекта
 
 ```
 frontend/
-├── index.html
+├── index.html              # Google Fonts Cinzel preconnect + link
 ├── vite.config.ts
 ├── tsconfig.json
 ├── package.json
 │
-├── public/
-│   ├── favicon.ico
-│   └── fonts/
-│
 ├── src/
-│   ├── main.ts                 # Entry point
-│   ├── App.vue                 # Root component
+│   ├── main.ts             # Entry point
+│   ├── App.vue             # Root component
 │   │
-│   ├── assets/
-│   │   ├── css/
-│   │   │   ├── tokens.css      # Design tokens
-│   │   │   ├── base.css        # Reset, typography
-│   │   │   └── utilities.css   # Utility classes
-│   │   └── icons/              # SVG иконки (если не Lucide)
+│   ├── assets/css/
+│   │   ├── tokens.css      # Design tokens (CSS custom properties)
+│   │   ├── base.css        # Reset, typography, scrollbar
+│   │   └── utilities.css   # Utility classes
 │   │
 │   ├── router/
-│   │   └── index.ts            # Vue Router config
+│   │   └── index.ts        # Vue Router + navigation guards
 │   │
-│   ├── stores/                 # Pinia stores
-│   │   ├── session.ts          # Сессия, игроки
-│   │   ├── characters.ts       # Персонажи
-│   │   ├── combat.ts           # Состояние боя
-│   │   ├── map.ts              # Состояние карты
-│   │   ├── dice.ts             # Броски кубиков
-│   │   └── ui.ts               # UI состояние (панели, модалки)
+│   ├── stores/             # Pinia stores (Composition API)
+│   │   ├── auth.ts         # Регистрация, логин, logout, JWT
+│   │   ├── session.ts      # Сессия, WebSocket, игроки, ready
+│   │   ├── characters.ts   # Сессионные персонажи
+│   │   ├── combat.ts       # Бой, инициатива
+│   │   ├── dice.ts         # Броски кубиков
+│   │   ├── map.ts          # Карты, токены, WS handlers
+│   │   └── profile.ts      # Библиотека персонажей/карт (вне сессий)
 │   │
-│   ├── composables/            # Reusable logic
-│   │   ├── useWebSocket.ts     # WebSocket connection
-│   │   ├── useGestures.ts      # Touch gestures
-│   │   ├── useCanvas.ts        # Canvas rendering
-│   │   ├── useDice.ts          # Dice rolling logic
-│   │   └── useAuth.ts          # Token management
+│   ├── composables/
+│   │   ├── useWebSocket.ts # WS подключение + reconnect
+│   │   ├── useSwipe.ts     # Свайп-жесты (Pointer Events)
+│   │   ├── useToast.ts     # Toast уведомления
+│   │   └── useAuth.ts      # Token management
 │   │
-│   ├── services/               # API & external services
-│   │   ├── api.ts              # REST API client
-│   │   └── websocket.ts        # WebSocket service
+│   ├── services/
+│   │   ├── api.ts          # Axios клиент + interceptors + все API endpoints
+│   │   └── websocket.ts    # WebSocket service (EventEmitter, reconnect)
 │   │
-│   ├── types/                  # TypeScript types
-│   │   ├── models.ts           # Domain models
-│   │   ├── api.ts              # API types
-│   │   └── events.ts           # WebSocket events
+│   ├── types/
+│   │   ├── models.ts       # Domain models (User, Character, Session, Map...)
+│   │   ├── api.ts          # API response/request types
+│   │   └── events.ts       # WebSocket event types
 │   │
-│   ├── layouts/
-│   │   ├── GMLayout.vue
-│   │   └── PlayerLayout.vue
+│   ├── data/
+│   │   └── tokenIcons.ts   # 15 SVG иконок для токенов карты
 │   │
-│   ├── views/                  # Page components
-│   │   ├── HomeView.vue        # Главная (создать/войти)
-│   │   ├── GMView.vue          # GM интерфейс
-│   │   └── PlayerView.vue      # Player интерфейс
+│   ├── views/
+│   │   ├── LoginView.vue
+│   │   ├── RegisterView.vue
+│   │   ├── HomeView.vue            # Dashboard со статистикой
+│   │   ├── ProfileView.vue         # Профиль (карусель, сайдбар)
+│   │   ├── JoinSessionView.vue     # Присоединение (карусель, код)
+│   │   ├── GMLobbyView.vue         # Лобби GM
+│   │   ├── GMView.vue              # Основной интерфейс GM
+│   │   ├── PlayerLobbyView.vue     # Лобби игрока (flip-карточка, готовность)
+│   │   ├── PlayerView.vue          # Основной интерфейс игрока
+│   │   ├── CreateCharacterView.vue
+│   │   ├── EditCharacterView.vue
+│   │   └── CreateMapView.vue
 │   │
 │   └── components/
-│       ├── common/             # Shared components
-│       │   ├── BaseButton.vue
-│       │   ├── BaseInput.vue
-│       │   ├── BasePanel.vue
-│       │   ├── BaseModal.vue
-│       │   └── Toast.vue
-│       │
-│       ├── gm/                 # GM-specific
-│       │   ├── TopBar.vue
-│       │   ├── LeftPanel.vue
-│       │   ├── PlayersTab.vue
-│       │   ├── EventLog.vue
-│       │   ├── CombatTracker.vue
-│       │   └── SessionSettings.vue
-│       │
-│       ├── player/             # Player-specific
-│       │   ├── CharacterSheet.vue
-│       │   ├── CharacterHeader.vue
-│       │   ├── StatsBar.vue
-│       │   ├── ItemsList.vue
-│       │   └── SpellsList.vue
-│       │
-│       ├── dice/
-│       │   ├── DiceSelector.vue
-│       │   ├── DiceCarousel.vue
-│       │   ├── DiceButton.vue
-│       │   ├── RollResult.vue
-│       │   └── RollHistory.vue
-│       │
-│       ├── map/
-│       │   ├── CanvasMap.vue
-│       │   ├── MapControls.vue
-│       │   ├── Token.vue
-│       │   └── GridOverlay.vue
-│       │
-│       └── character/          # Shared character components
-│           ├── CharacterCard.vue
-│           ├── HPBar.vue
-│           └── AbilityScore.vue
+│       ├── common/          # BaseButton, BaseInput, BaseModal, BasePanel,
+│       │                    # ConfirmModal, Toast
+│       ├── profile/         # CharacterFlipCard, CharacterCarousel,
+│       │                    # ProfileTopBar, ProfileSidebar,
+│       │                    # UserCharacterCard, UserMapCard, AddCard
+│       ├── player/          # PlayerSidebar, PlayerTopBar,
+│       │                    # PlayerLobbySidebar, PlayerLobbyTopBar,
+│       │                    # ReadyButton, CharacterSelection
+│       ├── gm/              # GMLayout, PlayersTab, NPCSection,
+│       │                    # PlayersLobbyList, SessionCodeDisplay,
+│       │                    # CreateSessionModal, ImportNpcModal, ImportMapModal
+│       ├── character/       # CharacterCard, CharacterSheet, HPBar
+│       ├── dice/            # DiceRollModal, RollResult, RollHistory
+│       ├── combat/          # CombatTab, InitiativeBar, InitiativeRollModal
+│       ├── map/             # GameMap (Konva.js), MapToken, AddTokenModal
+│       └── templates/       # ClassTemplateCard, TemplateSelector
 ```
 
 ---
@@ -120,248 +102,54 @@ frontend/
 ## Routing
 
 ```typescript
-// src/router/index.ts
-import { createRouter, createWebHistory } from 'vue-router'
+// Основные маршруты (src/router/index.ts)
 
-const routes = [
-  {
-    path: '/',
-    name: 'home',
-    component: () => import('@/views/HomeView.vue')
-  },
-  {
-    path: '/gm',
-    name: 'gm',
-    component: () => import('@/views/GMView.vue'),
-    meta: { requiresAuth: true, role: 'gm' }
-  },
-  {
-    path: '/play',
-    name: 'player',
-    component: () => import('@/views/PlayerView.vue'),
-    meta: { requiresAuth: true, role: 'player' }
-  },
-  {
-    path: '/join/:code',
-    name: 'join',
-    component: () => import('@/views/JoinView.vue')
-  }
-]
+// Публичные (requiresUser: false)
+{ path: '/login',    name: 'login',    component: LoginView }
+{ path: '/register', name: 'register', component: RegisterView }
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+// Требуют аккаунт (meta: { requiresUser: true })
+{ path: '/',        name: 'home',     component: HomeView }
+{ path: '/profile', name: 'profile',  component: ProfileView }
+{ path: '/join',    name: 'join',     component: JoinSessionView }
+{ path: '/create-character', name: 'create-character' }
+{ path: '/edit-character/:id', name: 'edit-character' }
+{ path: '/create-map', name: 'create-map' }
 
-// Navigation guard
-router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore()
-
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'home' })
-  } else if (to.meta.role && authStore.role !== to.meta.role) {
-    next({ name: authStore.role === 'gm' ? 'gm' : 'player' })
-  } else {
-    next()
-  }
-})
+// Требуют сессионный токен (meta: { requiresAuth: true })
+{ path: '/gm/lobby',  name: 'gm-lobby',     role: 'gm' }
+{ path: '/gm',        name: 'gm',           role: 'gm' }
+{ path: '/play/lobby', name: 'player-lobby', role: 'player' }
+{ path: '/play',       name: 'player',       role: 'player' }
 ```
+
+**Navigation guards:**
+- Незалогиненные → `/login`
+- Без сессии + `requiresAuth` → `/`
+- GM на player routes → redirect на GM
+- Player на GM routes → redirect на player
+- Сессия начата + лобби → redirect на игру
 
 ---
 
-## State Management (Pinia)
+## State Management (Pinia, Composition API)
 
-### Session Store
-
-```typescript
-// src/stores/session.ts
-import { defineStore } from 'pinia'
-
-interface Player {
-  id: number
-  name: string
-  isGm: boolean
-  isOnline: boolean
-}
-
-interface SessionState {
-  id: number | null
-  code: string | null
-  token: string | null
-  isGm: boolean
-  players: Player[]
-  isConnected: boolean
-}
-
-export const useSessionStore = defineStore('session', {
-  state: (): SessionState => ({
-    id: null,
-    code: null,
-    token: localStorage.getItem('token'),
-    isGm: false,
-    players: [],
-    isConnected: false
-  }),
-
-  getters: {
-    isAuthenticated: (state) => !!state.token,
-    currentPlayer: (state) => state.players.find(p =>
-      p.isGm === state.isGm
-    ),
-    otherPlayers: (state) => state.players.filter(p => !p.isGm)
-  },
-
-  actions: {
-    async createSession() {
-      const response = await api.post('/session')
-      this.code = response.data.code
-      this.token = response.data.gm_token
-      this.isGm = true
-      localStorage.setItem('token', this.token)
-    },
-
-    async joinSession(code: string, name: string) {
-      const response = await api.post('/session/join', { code, name })
-      this.token = response.data.token
-      this.code = code
-      this.isGm = false
-      localStorage.setItem('token', this.token)
-    },
-
-    // WebSocket handlers
-    onPlayerJoined(player: Player) {
-      this.players.push(player)
-    },
-
-    onPlayerLeft(playerId: number) {
-      this.players = this.players.filter(p => p.id !== playerId)
-    }
-  }
-})
-```
-
-### Characters Store
+Все stores используют `defineStore` с setup function:
 
 ```typescript
-// src/stores/characters.ts
-import { defineStore } from 'pinia'
-import type { Character } from '@/types/models'
+export const useSessionStore = defineStore('session', () => {
+  const token = ref(localStorage.getItem('token') || '')
+  const code = ref('')
+  const players = ref<Player[]>([])
+  const isConnected = ref(false)
+  const isGm = ref(false)
+  const isReady = computed(() => currentPlayer.value?.is_ready ?? false)
 
-export const useCharactersStore = defineStore('characters', {
-  state: () => ({
-    characters: [] as Character[],
-    selectedId: null as number | null,
-    loading: false
-  }),
+  async function joinSession(code: string, name: string, characterId?: number) { ... }
+  async function setReady(isReady: boolean) { ... }
+  function setupWebSocketHandlers() { ... }
 
-  getters: {
-    selected: (state) =>
-      state.characters.find(c => c.id === state.selectedId),
-
-    byPlayer: (state) => (playerId: number) =>
-      state.characters.filter(c => c.playerId === playerId)
-  },
-
-  actions: {
-    async fetchAll() {
-      this.loading = true
-      try {
-        const response = await api.get('/characters')
-        this.characters = response.data
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async createFromTemplate(templateId: string, name: string) {
-      const response = await api.post('/templates/create', {
-        template_id: templateId,
-        name
-      })
-      this.characters.push(response.data)
-      return response.data
-    },
-
-    // WebSocket handler
-    onCharacterUpdated(character: Character) {
-      const index = this.characters.findIndex(c => c.id === character.id)
-      if (index !== -1) {
-        this.characters[index] = character
-      }
-    }
-  }
-})
-```
-
-### Map Store
-
-```typescript
-// src/stores/map.ts
-import { defineStore } from 'pinia'
-
-interface Token {
-  id: string
-  characterId: number | null
-  x: number
-  y: number
-  color: string
-  size: number
-}
-
-interface MapState {
-  zoom: number
-  offsetX: number
-  offsetY: number
-  gridSize: number
-  showGrid: boolean
-  tokens: Token[]
-  selectedTokenId: string | null
-}
-
-export const useMapStore = defineStore('map', {
-  state: (): MapState => ({
-    zoom: 1,
-    offsetX: 0,
-    offsetY: 0,
-    gridSize: 50,
-    showGrid: true,
-    tokens: [],
-    selectedTokenId: null
-  }),
-
-  getters: {
-    selectedToken: (state) =>
-      state.tokens.find(t => t.id === state.selectedTokenId),
-
-    visibleArea: (state) => ({
-      x: -state.offsetX / state.zoom,
-      y: -state.offsetY / state.zoom,
-      width: window.innerWidth / state.zoom,
-      height: window.innerHeight / state.zoom
-    })
-  },
-
-  actions: {
-    pan(deltaX: number, deltaY: number) {
-      this.offsetX += deltaX
-      this.offsetY += deltaY
-    },
-
-    setZoom(zoom: number, centerX: number, centerY: number) {
-      const zoomDelta = zoom / this.zoom
-      this.offsetX = centerX - (centerX - this.offsetX) * zoomDelta
-      this.offsetY = centerY - (centerY - this.offsetY) * zoomDelta
-      this.zoom = Math.max(0.5, Math.min(3, zoom))
-    },
-
-    moveToken(tokenId: string, x: number, y: number) {
-      const token = this.tokens.find(t => t.id === tokenId)
-      if (token) {
-        token.x = x
-        token.y = y
-      }
-    }
-  }
+  return { token, code, players, isConnected, isGm, isReady, joinSession, setReady, ... }
 })
 ```
 
@@ -370,207 +158,64 @@ export const useMapStore = defineStore('map', {
 ## WebSocket Integration
 
 ```typescript
-// src/services/websocket.ts
-import { useSessionStore } from '@/stores/session'
-import { useCharactersStore } from '@/stores/characters'
-import { useDiceStore } from '@/stores/dice'
-
+// src/services/websocket.ts — EventEmitter-based service
 class WebSocketService {
-  private ws: WebSocket | null = null
-  private reconnectAttempts = 0
-  private maxReconnects = 5
-
-  connect(token: string) {
-    const url = `${import.meta.env.VITE_WS_URL}/ws?token=${token}`
-    this.ws = new WebSocket(url)
-
-    this.ws.onopen = () => {
-      console.log('WebSocket connected')
-      this.reconnectAttempts = 0
-      useSessionStore().isConnected = true
-    }
-
-    this.ws.onmessage = (event) => {
-      const message = JSON.parse(event.data)
-      this.handleMessage(message)
-    }
-
-    this.ws.onclose = () => {
-      useSessionStore().isConnected = false
-      this.attemptReconnect(token)
-    }
-  }
-
-  private handleMessage(message: { event: string; data: any }) {
-    const sessionStore = useSessionStore()
-    const charactersStore = useCharactersStore()
-    const diceStore = useDiceStore()
-
-    switch (message.event) {
-      case 'player_joined':
-        sessionStore.onPlayerJoined(message.data)
-        break
-      case 'player_left':
-        sessionStore.onPlayerLeft(message.data.player_id)
-        break
-      case 'character_updated':
-        charactersStore.onCharacterUpdated(message.data.character)
-        break
-      case 'dice_result':
-        diceStore.onDiceResult(message.data)
-        break
-      case 'combat_started':
-        // ...
-        break
-    }
-  }
-
-  send(event: string, data: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ event, data }))
-    }
-  }
-
-  private attemptReconnect(token: string) {
-    if (this.reconnectAttempts < this.maxReconnects) {
-      this.reconnectAttempts++
-      setTimeout(() => this.connect(token), 2000 * this.reconnectAttempts)
-    }
-  }
+  connect(token: string): void
+  disconnect(): void
+  on(event: string, handler: Function): void
+  off(event: string, handler: Function): void
+  send(event: string, data: any): void
+  isActiveFor(token: string): boolean
 }
 
 export const wsService = new WebSocketService()
 ```
 
----
+**Паттерн подключения:**
+1. `sessionStore.connectWebSocket()` → `wsService.connect(token)`
+2. `sessionStore.setupWebSocketHandlers()` → `wsService.on('event', handler)`
+3. `useWebSocket()` composable → авто-подключение + reconnect в компонентах
 
-## Canvas Map Architecture
+**События сервера (20):** `player_joined`, `player_left`, `player_ready`, `player_movement_changed`, `session_started`, `dice_result`, `character_created`, `character_updated`, `character_deleted`, `combat_started`, `combat_ended`, `turn_changed`, `hp_changed`, `initiative_rolled`, `map_created`, `map_changed`, `token_added`, `token_updated`, `token_removed`, `ping`
 
-```typescript
-// src/composables/useCanvas.ts
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useMapStore } from '@/stores/map'
-
-export function useCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
-  const mapStore = useMapStore()
-  let ctx: CanvasRenderingContext2D | null = null
-  let animationFrameId: number | null = null
-
-  // Layers (bottom to top)
-  const layers = {
-    background: new BackgroundLayer(),
-    grid: new GridLayer(),
-    tokens: new TokensLayer(),
-    effects: new EffectsLayer(),
-    ui: new UILayer()
-  }
-
-  function render() {
-    if (!ctx || !canvasRef.value) return
-
-    const { width, height } = canvasRef.value
-
-    // Clear
-    ctx.clearRect(0, 0, width, height)
-
-    // Apply transform
-    ctx.save()
-    ctx.translate(mapStore.offsetX, mapStore.offsetY)
-    ctx.scale(mapStore.zoom, mapStore.zoom)
-
-    // Render layers
-    layers.background.render(ctx, mapStore)
-    if (mapStore.showGrid) {
-      layers.grid.render(ctx, mapStore)
-    }
-    layers.tokens.render(ctx, mapStore)
-    layers.effects.render(ctx, mapStore)
-
-    ctx.restore()
-
-    // UI layer in screen space
-    layers.ui.render(ctx, mapStore)
-
-    animationFrameId = requestAnimationFrame(render)
-  }
-
-  onMounted(() => {
-    if (canvasRef.value) {
-      ctx = canvasRef.value.getContext('2d')
-      resizeCanvas()
-      render()
-    }
-  })
-
-  onUnmounted(() => {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-    }
-  })
-
-  function resizeCanvas() {
-    if (canvasRef.value) {
-      const dpr = window.devicePixelRatio || 1
-      const rect = canvasRef.value.getBoundingClientRect()
-      canvasRef.value.width = rect.width * dpr
-      canvasRef.value.height = rect.height * dpr
-      ctx?.scale(dpr, dpr)
-    }
-  }
-
-  return {
-    layers,
-    resizeCanvas
-  }
-}
-```
+**События клиента (3):** `roll_dice`, `chat`, `pong`
 
 ---
 
-## API Client
+## Аутентификация
 
-```typescript
-// src/services/api.ts
-import axios from 'axios'
+Двухуровневая JWT система:
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api'
-})
+1. **Аккаунт:** `POST /auth/register` или `/auth/login` → `access_token` + `refresh_token`
+2. **Сессия:** `POST /session` или `/session/join` → перезаписывает токены сессионными
 
-// Add token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.params = { ...config.params, token }
-  }
-  return config
-})
+Axios interceptors:
+- Request: автоматически добавляет `Authorization: Bearer <token>`
+- Response 401: авто-обновление через `refresh_token`, retry запроса
 
-// Handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/'
-    }
-    return Promise.reject(error)
-  }
-)
-
-export { api }
-```
+При выходе из сессии (`clearSession()`) восстанавливаются user-level токены из `userAccessToken`/`userRefreshToken`.
 
 ---
 
-## Environment Variables
+## Карта (Konva.js)
 
-```env
-# .env.development
-VITE_API_URL=http://localhost:8000/api
-VITE_WS_URL=ws://localhost:8000
-
-# .env.production
-VITE_API_URL=/api
-VITE_WS_URL=wss://your-domain.com
+```vue
+<!-- GameMap.vue -->
+<v-stage :config="stageConfig" @wheel="handleZoom" @pointerdown="handlePan">
+  <v-layer>                              <!-- Фон -->
+    <v-image v-if="bgImage" :config="bgConfig" />
+    <v-rect :config="bgFallback" />
+  </v-layer>
+  <v-layer>                              <!-- Сетка -->
+    <v-line v-for="line in gridLines" :config="line" />
+  </v-layer>
+  <v-layer>                              <!-- Токены -->
+    <MapToken v-for="token in tokens" :token="token" @dragend="updatePosition" />
+  </v-layer>
+</v-stage>
 ```
+
+- Zoom: колесо мыши / pinch
+- Pan: drag по пустому месту
+- Токены: drag (GM — все; игрок — свой при `can_move`)
+- Контекстное меню: ПКМ на токене (GM only)

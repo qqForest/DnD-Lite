@@ -1,61 +1,63 @@
 <template>
   <div class="join-view">
-    <div class="container">
+    <!-- Экран подключения -->
+    <div v-if="loading" class="connecting-screen">
+      <div class="spinner"></div>
+      <p class="connecting-text">Подключение...</p>
+    </div>
+
+    <!-- Основной контент -->
+    <div v-else class="container">
       <div class="header">
         <BaseButton variant="ghost" size="sm" @click="router.push({ name: 'profile' })">
           &larr; Назад
         </BaseButton>
+        <h1 class="title">Присоединиться</h1>
       </div>
 
-      <h1 class="title">Присоединиться к игре</h1>
-
-      <section class="section" v-if="profileStore.playerCharacters.length > 0">
-        <h2 class="section-title">Выберите персонажа</h2>
-        <div class="characters-grid">
-          <UserCharacterCard
-            v-for="char in profileStore.playerCharacters"
-            :key="char.id"
-            :character="char"
-            :selected="selectedCharacterId === char.id"
-            :clickable="true"
-            @select="selectedCharacterId = char.id"
-          />
-        </div>
+      <!-- Карусель персонажей -->
+      <section v-if="profileStore.playerCharacters.length > 0" class="section">
+        <CharacterCarousel
+          ref="carouselRef"
+          :characters="profileStore.playerCharacters"
+          :readonly="true"
+        />
+        <p class="carousel-hint">Выбрать персонажа</p>
       </section>
 
-      <section class="section" v-else>
-        <p class="no-characters">
-          У вас пока нет персонажей.
-          <router-link :to="{ name: 'create-character' }" class="create-link">Создать персонажа</router-link>
-        </p>
+      <!-- Пустое состояние -->
+      <section v-else class="section empty-state">
+        <p class="empty-text">У вас нет персонажей</p>
+        <BaseButton variant="primary" @click="router.push({ name: 'create-character' })">
+          Создать персонажа
+        </BaseButton>
       </section>
 
-      <section class="section">
-        <h2 class="section-title">Данные для входа</h2>
-        <div class="form">
-          <BaseInput
-            v-model="sessionCode"
-            placeholder="Код комнаты (например: ABC123)"
-          />
-          <BaseInput
-            v-model="playerName"
-            placeholder="Ваше имя"
-          />
-          <p v-if="profileStore.playerCharacters.length > 0 && !selectedCharacterId" class="warning-message">
-            Вы войдёте без персонажа
-          </p>
-          <BaseButton
-            variant="primary"
-            size="lg"
-            :disabled="!canJoin || loading"
-            @click="handleJoin"
-          >
-            Присоединиться
-          </BaseButton>
-        </div>
+      <!-- Код сессии -->
+      <section class="section code-section">
+        <input
+          v-model="sessionCode"
+          class="code-input"
+          placeholder="Код комнаты"
+          maxlength="6"
+          autocomplete="off"
+          spellcheck="false"
+        />
       </section>
 
-      <p v-if="error" class="error-message">{{ error }}</p>
+      <!-- Кнопка присоединиться -->
+      <section class="section action-section">
+        <BaseButton
+          variant="primary"
+          :disabled="!canJoin"
+          class="join-btn"
+          @click="handleJoin"
+        >
+          Присоединиться
+        </BaseButton>
+
+        <p v-if="error" class="error-message">{{ error }}</p>
+      </section>
     </div>
   </div>
 </template>
@@ -67,22 +69,25 @@ import { useProfileStore } from '@/stores/profile'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
 import BaseButton from '@/components/common/BaseButton.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import UserCharacterCard from '@/components/profile/UserCharacterCard.vue'
+import CharacterCarousel from '@/components/profile/CharacterCarousel.vue'
 
 const router = useRouter()
 const profileStore = useProfileStore()
 const sessionStore = useSessionStore()
 const authStore = useAuthStore()
 
-const selectedCharacterId = ref<number | null>(null)
+const carouselRef = ref<InstanceType<typeof CharacterCarousel> | null>(null)
 const sessionCode = ref('')
-const playerName = ref(authStore.user?.display_name || '')
 const loading = ref(false)
 const error = ref('')
 
+const selectedCharacterId = computed(() => {
+  const idx = carouselRef.value?.currentIndex ?? 0
+  return profileStore.playerCharacters[idx]?.id ?? null
+})
+
 const canJoin = computed(() => {
-  return sessionCode.value.trim().length >= 6 && playerName.value.trim().length > 0
+  return sessionCode.value.trim().length >= 6 && selectedCharacterId.value !== null && !loading.value
 })
 
 async function handleJoin() {
@@ -91,15 +96,15 @@ async function handleJoin() {
   loading.value = true
   error.value = ''
   try {
+    const playerName = authStore.user?.display_name || ''
     await sessionStore.joinSession(
       sessionCode.value.toUpperCase().trim(),
-      playerName.value.trim(),
-      selectedCharacterId.value ?? undefined
+      playerName,
+      selectedCharacterId.value!
     )
     router.push({ name: 'player-lobby' })
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Не удалось присоединиться к сессии. Проверьте код комнаты.'
-  } finally {
     loading.value = false
   }
 }
@@ -124,63 +129,123 @@ onMounted(() => {
 }
 
 .header {
-  margin-bottom: var(--spacing-4);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-6);
 }
 
 .title {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-2xl);
   font-weight: 600;
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-6);
+  margin: 0;
 }
 
 .section {
   margin-bottom: var(--spacing-6);
 }
 
-.section-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-3);
-}
-
-.characters-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-4);
-}
-
-@media (max-width: 480px) {
-  .characters-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.no-characters {
+.carousel-hint {
+  text-align: center;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+  margin-top: var(--spacing-2);
 }
 
-.form {
+.empty-state {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-4);
+  padding: var(--spacing-8) 0;
+}
+
+.empty-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.code-section {
+  display: flex;
+  justify-content: center;
+}
+
+.code-input {
+  width: 100%;
+  max-width: 300px;
+  min-height: 48px;
+  padding: var(--spacing-3);
+  font-family: monospace;
+  font-size: var(--font-size-xl);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+
+.code-input::placeholder {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted, var(--color-text-secondary));
+}
+
+.code-input:focus {
+  border-color: var(--color-accent-primary);
+  box-shadow: var(--glow-accent);
+}
+
+.action-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-3);
 }
 
-.create-link {
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
-.warning-message {
-  color: var(--color-warning, #f59e0b);
-  font-size: var(--font-size-sm);
+.join-btn {
+  width: 100%;
+  max-width: 300px;
+  min-height: 48px;
 }
 
 .error-message {
   color: var(--color-danger, #ef4444);
   font-size: var(--font-size-sm);
-  margin-top: var(--spacing-2);
+}
+
+/* Экран подключения */
+.connecting-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--spacing-4);
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.connecting-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
 }
 </style>

@@ -122,4 +122,11 @@ defineEmits<{
   align-items: center;
   justify-content: center;
 }
+
+@media (max-width: 768px) {
+  .btn-sm,
+  .btn-md {
+    min-height: 44px;
+  }
+}
 </style>

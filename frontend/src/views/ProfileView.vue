@@ -1,44 +1,40 @@
 <template>
   <div class="profile-view">
-    <div class="container">
-      <div class="profile-header">
-        <div class="user-info">
-          <span class="display-name">{{ authStore.user?.display_name }}</span>
-          <span class="role-badge">{{ roleLabel }}</span>
-        </div>
-        <div class="header-actions">
-          <BaseButton variant="ghost" size="sm" @click="router.push({ name: 'home' })">
-            На главную
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" @click="handleLogout">
-            Выйти
-          </BaseButton>
-        </div>
-      </div>
+    <ProfileTopBar @toggle-sidebar="showSidebar = !showSidebar" />
+    <ProfileSidebar v-model="showSidebar" />
 
+    <div class="container">
       <!-- Player section -->
       <template v-if="isPlayer">
         <section class="section">
           <h2 class="section-title">Мои персонажи</h2>
-          <div class="cards-grid">
-            <UserCharacterCard
-              v-for="char in profileStore.playerCharacters"
-              :key="char.id"
-              :character="char"
-              :deletable="true"
-              :editable="true"
-              @delete="confirmDelete('character', char.id, char.name)"
-              @edit="router.push({ name: 'edit-character', params: { id: char.id } })"
-            />
-            <AddCard label="Новый персонаж" @click="router.push({ name: 'create-character' })" />
+          <CharacterCarousel
+            :characters="profileStore.playerCharacters"
+            @delete="(id) => confirmDelete('character', id, getCharName(id))"
+            @edit="(id) => router.push({ name: 'edit-character', params: { id } })"
+          />
+          <div class="section-action">
+            <BaseButton
+              variant="primary"
+              class="full-width-btn"
+              @click="router.push({ name: 'create-character' })"
+            >
+              Новый персонаж
+            </BaseButton>
           </div>
         </section>
 
         <section class="section">
           <h2 class="section-title">Присоединиться к игре</h2>
-          <BaseButton variant="primary" @click="router.push({ name: 'join' })">
-            Присоединиться
-          </BaseButton>
+          <div class="section-action">
+            <BaseButton
+              variant="primary"
+              class="full-width-btn"
+              @click="router.push({ name: 'join' })"
+            >
+              Присоединиться
+            </BaseButton>
+          </div>
         </section>
       </template>
 
@@ -120,6 +116,9 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import AddCard from '@/components/profile/AddCard.vue'
 import UserCharacterCard from '@/components/profile/UserCharacterCard.vue'
 import UserMapCard from '@/components/profile/UserMapCard.vue'
+import CharacterCarousel from '@/components/profile/CharacterCarousel.vue'
+import ProfileTopBar from '@/components/profile/ProfileTopBar.vue'
+import ProfileSidebar from '@/components/profile/ProfileSidebar.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import CreateSessionModal from '@/components/gm/CreateSessionModal.vue'
 
@@ -129,6 +128,7 @@ const profileStore = useProfileStore()
 const sessionStore = useSessionStore()
 const toast = useToast()
 
+const showSidebar = ref(false)
 const creatingSession = ref(false)
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
@@ -141,19 +141,9 @@ const role = computed(() => authStore.user?.role || 'player')
 const isPlayer = computed(() => role.value === 'player' || role.value === 'both')
 const isGm = computed(() => role.value === 'gm' || role.value === 'both')
 
-const roleLabel = computed(() => {
-  switch (role.value) {
-    case 'player': return 'Игрок'
-    case 'gm': return 'Game Master'
-    case 'both': return 'Игрок / GM'
-    default: return role.value
-  }
-})
-
-function handleLogout() {
-  authStore.logout()
-  sessionStore.clearSession()
-  router.push({ name: 'login' })
+function getCharName(id: number): string {
+  const char = profileStore.playerCharacters.find(c => c.id === id)
+  return char?.name || ''
 }
 
 function confirmDelete(type: 'character' | 'map', id: number | string, name: string) {
@@ -227,48 +217,13 @@ onMounted(() => {
 <style scoped>
 .profile-view {
   min-height: 100vh;
-  padding: var(--spacing-6);
   background: var(--color-bg-primary);
 }
 
 .container {
   max-width: 960px;
   margin: 0 auto;
-}
-
-.profile-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-8);
-  padding-bottom: var(--spacing-4);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-3);
-}
-
-.display-name {
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.role-badge {
-  font-size: var(--font-size-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: #fff;
-  font-weight: 500;
-}
-
-.header-actions {
-  display: flex;
-  gap: var(--spacing-2);
+  padding: var(--spacing-6);
 }
 
 .section {
@@ -276,10 +231,23 @@ onMounted(() => {
 }
 
 .section-title {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: var(--spacing-4);
+}
+
+.section-action {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-4);
+}
+
+.full-width-btn {
+  width: 100%;
+  max-width: 300px;
+  min-height: 48px;
 }
 
 .cards-grid {

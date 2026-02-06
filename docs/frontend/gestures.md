@@ -1,389 +1,159 @@
 # Gestures & Interactions
 
-Спецификация жестов и взаимодействий для DnD Lite GM.
+Спецификация жестов и взаимодействий DnD Lite GM.
 
-## Общие принципы
+## useSwipe Composable
 
-1. **Feedback обязателен** — каждое действие должно иметь визуальный/тактильный отклик
-2. **Отмена жеста** — пользователь может отменить жест, вернув палец в исходную позицию
-3. **Threshold** — жест срабатывает только после преодоления порога (обычно 50px)
-4. **Haptic feedback** — использовать вибрацию на мобильных при ключевых действиях
+Основной механизм свайп-жестов. Реализован на Pointer Events (работает и touch, и desktop).
 
----
+**Файл:** `frontend/src/composables/useSwipe.ts`
 
-## Dice Carousel (Player)
-
-### Свайп влево/вправо — выбор кубика
-
-```
-   [d6]  [d8]  [d10]  [d12]  [d20]
-          ←────────→
-         swipe to select
-```
-
-**Параметры:**
-- `threshold`: 30px
-- `snapPoints`: центр каждого кубика
-- `resistance`: 0.5 (сопротивление за пределами списка)
-- `animation`: spring с damping
-
-**Реализация:**
+### API
 
 ```typescript
-interface DiceCarouselState {
-  selectedIndex: number
-  offsetX: number
-  isDragging: boolean
-}
-
-const DICE_WIDTH = 72 // px
-const SNAP_THRESHOLD = 30
-
-function onTouchMove(deltaX: number) {
-  state.offsetX = deltaX
-
-  // Визуальный feedback - масштаб активного кубика
-  const progress = Math.abs(deltaX) / DICE_WIDTH
-  activeScale.value = 1 - progress * 0.1
-}
-
-function onTouchEnd(deltaX: number) {
-  if (Math.abs(deltaX) > SNAP_THRESHOLD) {
-    const direction = deltaX > 0 ? -1 : 1
-    state.selectedIndex = clamp(
-      state.selectedIndex + direction,
-      0,
-      diceTypes.length - 1
-    )
-  }
-  // Animate to snap point
-  animateToIndex(state.selectedIndex)
-}
-```
-
-### Свайп вверх — бросить кубик
-
-```
-           ↑
-         swipe up
-
-     ╭─────────────╮
-     │     d20     │
-     ╰─────────────╯
-```
-
-**Параметры:**
-- `threshold`: 50px вверх
-- `velocityThreshold`: 0.5 (быстрый свайп тоже считается)
-- `maxDistance`: 150px (дальше не тянется)
-
-**Состояния:**
-
-1. **Idle** — кубик в покое
-2. **Dragging** — палец тянет вверх, кубик следует с сопротивлением
-3. **Releasing** — отпустили до threshold, возврат назад
-4. **Rolling** — threshold пройден, анимация броска
-
-**Реализация:**
-
-```typescript
-const ROLL_THRESHOLD = 50
-const VELOCITY_THRESHOLD = 0.5
-
-function onVerticalDrag(deltaY: number, velocity: number) {
-  // Отрицательный deltaY = движение вверх
-  if (deltaY > 0) return // Игнорируем свайп вниз
-
-  const progress = Math.min(Math.abs(deltaY) / 150, 1)
-
-  // Визуальный feedback
-  diceTransform.value = {
-    translateY: deltaY * 0.6, // Сопротивление
-    scale: 1 + progress * 0.2,
-    rotate: progress * 15
-  }
-
-  // Подсказка "отпустите для броска"
-  showRollHint.value = Math.abs(deltaY) > ROLL_THRESHOLD * 0.7
-}
-
-function onVerticalDragEnd(deltaY: number, velocity: number) {
-  const shouldRoll =
-    Math.abs(deltaY) > ROLL_THRESHOLD ||
-    Math.abs(velocity) > VELOCITY_THRESHOLD
-
-  if (shouldRoll) {
-    triggerRoll()
-    hapticFeedback('medium')
-  } else {
-    animateBack()
+function useSwipe(options?: { threshold?: number }) {
+  return {
+    offsetX: Ref<number>,          // Текущее смещение в px
+    isSwiping: Ref<boolean>,       // true во время горизонтального свайпа
+    handlers: {                     // Привязать через v-bind к элементу
+      onPointerdown, onPointermove, onPointerup, onPointercancel
+    },
+    onSwipeLeft: (fn: () => void) => void,   // Callback при свайпе влево
+    onSwipeRight: (fn: () => void) => void,  // Callback при свайпе вправо
   }
 }
 ```
 
-**Анимация броска:**
+### Логика
 
-```css
-@keyframes diceRoll {
-  0% {
-    transform: translateY(0) scale(1.2) rotate(15deg);
-  }
-  20% {
-    transform: translateY(-100px) scale(1.4) rotate(180deg);
-    opacity: 1;
-  }
-  40% {
-    transform: translateY(-80px) scale(1.2) rotate(360deg);
-  }
-  100% {
-    transform: translateY(0) scale(1) rotate(720deg);
-    opacity: 0;
-  }
-}
-```
+1. `pointerdown` → запоминаем `startX`, `startY`, вызываем `setPointerCapture`
+2. `pointermove` → после 10px движения определяем направление:
+   - Горизонтальное: `preventDefault()`, обновляем `offsetX`, `isSwiping = true`
+   - Вертикальное: игнорируем (не мешаем скроллу)
+3. `pointerup` → если `|offsetX| >= threshold (50px)`, вызываем `onSwipeLeft`/`onSwipeRight`
 
----
-
-## Character Sheet (Player)
-
-### Drag вверх/вниз — раскрытие карточки
-
-```
-         ┌───────────────────┐
-   drag  │ ═══════════════   │  ← Handle
-    ↕    │                   │
-         │  Character Info   │
-         │                   │
-         └───────────────────┘
-```
-
-**Snap points:**
-- `peek`: 80px (только имя и HP)
-- `half`: 40vh (основная информация)
-- `full`: 70vh (полная карточка)
-
-**Реализация:**
-
-```typescript
-const SNAP_POINTS = {
-  peek: 80,
-  half: window.innerHeight * 0.4,
-  full: window.innerHeight * 0.7
-}
-
-function onSheetDrag(deltaY: number, startHeight: number) {
-  const newHeight = startHeight - deltaY
-  sheetHeight.value = clamp(newHeight, SNAP_POINTS.peek, SNAP_POINTS.full)
-}
-
-function onSheetDragEnd(velocity: number) {
-  // Найти ближайший snap point
-  const currentHeight = sheetHeight.value
-  let targetSnap = 'half'
-
-  // Учитываем скорость
-  if (velocity < -0.5) {
-    // Быстрый свайп вниз
-    targetSnap = 'peek'
-  } else if (velocity > 0.5) {
-    // Быстрый свайп вверх
-    targetSnap = 'full'
-  } else {
-    // Ближайший по позиции
-    const distances = Object.entries(SNAP_POINTS).map(([name, height]) => ({
-      name,
-      distance: Math.abs(currentHeight - height)
-    }))
-    targetSnap = distances.sort((a, b) => a.distance - b.distance)[0].name
-  }
-
-  animateToHeight(SNAP_POINTS[targetSnap])
-}
-```
-
----
-
-## Canvas Map
-
-### Pinch to zoom
-
-```
-     👆         👆
-      \       /
-       \     /
-        ╲   ╱
-         ╲ ╱
-          ●  ← центр масштабирования
-```
-
-**Параметры:**
-- `minZoom`: 0.5
-- `maxZoom`: 3.0
-- `zoomStep`: 0.1 (для колеса мыши)
-
-**Реализация:**
-
-```typescript
-function onPinch(scale: number, center: Point) {
-  const newZoom = clamp(
-    baseZoom * scale,
-    MIN_ZOOM,
-    MAX_ZOOM
-  )
-
-  // Масштабирование относительно центра жеста
-  const zoomDelta = newZoom / mapState.zoom
-  mapState.offsetX = center.x - (center.x - mapState.offsetX) * zoomDelta
-  mapState.offsetY = center.y - (center.y - mapState.offsetY) * zoomDelta
-  mapState.zoom = newZoom
-}
-```
-
-### Pan (перемещение)
-
-```
-      👆────────→
-       drag to pan
-```
-
-**Для GM:**
-- Свободное перемещение одним или двумя пальцами
-
-**Для Player:**
-- Только двумя пальцами (один палец — выбор токена)
-
-### Long press — контекстное меню
-
-```
-      👆
-      ████  1.5s
-
-   ┌─────────────┐
-   │ Move        │
-   │ Attack      │
-   │ Cast Spell  │
-   └─────────────┘
-```
-
-**Параметры:**
-- `duration`: 500ms
-- `moveTolerance`: 10px (если сдвинулся — отмена)
-
----
-
-## GM Interactions
-
-### Drag токена
-
-```
-     👆═══════════════→ 🎯
-     drag token to move
-```
-
-**Параметры:**
-- `gridSnap`: true (привязка к сетке)
-- `ghostOpacity`: 0.5 (полупрозрачный клон при перетаскивании)
-
-**Состояния:**
-
-```typescript
-interface TokenDragState {
-  token: Token | null
-  startPosition: Point
-  currentPosition: Point
-  validDropTarget: boolean
-}
-
-function onTokenDragStart(token: Token) {
-  state.token = token
-  state.startPosition = token.position
-  showMovementRange(token) // Показать радиус перемещения
-}
-
-function onTokenDrag(position: Point) {
-  const snapped = snapToGrid(position)
-  state.currentPosition = snapped
-  state.validDropTarget = isValidMove(state.token, snapped)
-}
-
-function onTokenDragEnd() {
-  if (state.validDropTarget) {
-    moveToken(state.token, state.currentPosition)
-    hapticFeedback('light')
-  } else {
-    animateBack(state.token, state.startPosition)
-  }
-  hideMovementRange()
-}
-```
-
-### Double tap — быстрое действие
-
-- На токене: открыть карточку персонажа
-- На пустой клетке: создать маркер
-
----
-
-## Библиотека для жестов
-
-Рекомендую **@vueuse/gesture** или **Hammer.js**.
-
-### Установка
-
-```bash
-npm install @vueuse/gesture
-```
-
-### Использование
+### Использование (CharacterCarousel)
 
 ```vue
-<script setup>
-import { useGesture } from '@vueuse/gesture'
-
-const target = ref(null)
-
-useGesture({
-  onDrag: ({ movement: [mx, my], velocity }) => {
-    // ...
-  },
-  onPinch: ({ offset: [scale], origin }) => {
-    // ...
-  }
-}, {
-  domTarget: target,
-  eventOptions: { passive: false }
-})
-</script>
-
 <template>
-  <div ref="target" class="gesture-area">
-    <!-- content -->
+  <div class="carousel" v-bind="handlers" style="touch-action: pan-y">
+    <div class="track" :style="trackStyle">
+      <div v-for="item in items" class="slide">...</div>
+    </div>
   </div>
 </template>
+
+<script setup>
+const { offsetX, isSwiping, handlers, onSwipeLeft, onSwipeRight } = useSwipe()
+
+onSwipeLeft(() => { if (index < max) index++ })
+onSwipeRight(() => { if (index > 0) index-- })
+
+const trackStyle = computed(() => ({
+  transform: `translateX(${-(index * 100) + dragPercent}%)`,
+  transition: isSwiping.value ? 'none' : 'transform 300ms ease-out',
+}))
+</script>
+```
+
+**`touch-action: pan-y`** на контейнере — разрешает вертикальный скролл, горизонтальный контролируем вручную.
+
+---
+
+## CharacterFlipCard — тап
+
+Простой toggle `flipped = !flipped` по `@click`.
+
+```css
+.flip-card { perspective: 1000px; }
+.flip-card-inner {
+  transform-style: preserve-3d;
+  transition: transform 300ms ease;
+}
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-front, .flip-card-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-card-back { transform: rotateY(180deg); }
 ```
 
 ---
 
-## Haptic Feedback
+## Sidebar — slide-in
 
-```typescript
-function hapticFeedback(intensity: 'light' | 'medium' | 'heavy') {
-  if (!navigator.vibrate) return
+Паттерн для всех сайдбаров (ProfileSidebar, PlayerLobbySidebar, PlayerSidebar):
 
-  const patterns = {
-    light: [10],
-    medium: [20],
-    heavy: [30, 10, 30]
-  }
+```vue
+<Teleport to="body">
+  <Transition name="sidebar">
+    <div v-if="open" class="overlay" @click="close">
+      <div class="sidebar" @click.stop>...</div>
+    </div>
+  </Transition>
+</Teleport>
+```
 
-  navigator.vibrate(patterns[intensity])
+```css
+/* Overlay fade */
+.sidebar-enter-from, .sidebar-leave-to { opacity: 0; }
+.sidebar-enter-active, .sidebar-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 
-// Использование
-hapticFeedback('medium') // При броске кубика
-hapticFeedback('light')  // При выборе кубика
-hapticFeedback('heavy')  // При критическом ударе
+/* Panel slide */
+.sidebar-enter-from .sidebar, .sidebar-leave-to .sidebar {
+  transform: translateX(-100%);
+}
+.sidebar-enter-active .sidebar, .sidebar-leave-active .sidebar {
+  transition: transform var(--duration-normal) var(--ease-out);
+}
 ```
+
+---
+
+## Canvas Map (Konva.js)
+
+### Zoom
+
+- **Колесо мыши:** `@wheel` → изменение `stageScale`, зум к позиции курсора
+- **Pinch (touch):** обрабатывается Konva.js нативно
+- **Кнопки:** ZoomIn / ZoomOut в тулбаре карты
+- Диапазон: 0.5x — 3.0x
+
+### Pan
+
+- **Drag** по пустой области стейджа → `stage.draggable(true)`
+- GM: свободное перемещение
+- Player: свободное перемещение (readonly для токенов)
+
+### Токены
+
+- **GM:** drag любого токена → `@dragend` → API `PATCH /maps/{id}/tokens/{tokenId}`
+- **Player:** drag только своего токена при `can_move = true`
+- Снэп к сетке при отпускании
+
+### Контекстное меню (GM)
+
+- **ПКМ на токене** → позиционируемое меню: "Удалить", "Убить"
+- Закрывается по клику вне области
+
+---
+
+## Touch Targets
+
+Все интерактивные элементы имеют минимальный размер 44x44px:
+
+| Элемент | Реализация |
+|---------|------------|
+| BaseButton sm/md | `@media (max-width: 768px) { min-height: 44px }` |
+| Hamburger (Menu) | `width: 44px; height: 44px` |
+| Close button (×) | `width: 44px; height: 44px` |
+| Carousel dots | `min-width: 44px; min-height: 44px` (padding вокруг 8px dot) |
+| Action buttons (edit/delete) | `min-width: 44px; min-height: 44px` |
+| Nav buttons (sidebar) | `min-height: 48px; width: 100%` |
 
 ---
 
@@ -393,34 +163,11 @@ hapticFeedback('heavy')  // При критическом ударе
 
 | Жест | Альтернатива |
 |------|-------------|
-| Свайп выбора кубика | Стрелки ← → |
-| Свайп вверх (бросок) | Кнопка "Roll" / Enter |
-| Pinch zoom | Кнопки +/- или Ctrl+колесо |
-| Long press | Right click |
+| Свайп карусели | Клик по dots |
+| Тап flip-карточки | Любой клик/тап |
+| Свайп sidebar | Клик по гамбургеру |
+| Pinch zoom | Кнопки +/- на карте |
 
 ### Reduced Motion
 
-```css
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
-
-```typescript
-const prefersReducedMotion = window.matchMedia(
-  '(prefers-reduced-motion: reduce)'
-).matches
-
-function animateDiceRoll() {
-  if (prefersReducedMotion) {
-    // Мгновенный результат без анимации
-    showResult()
-  } else {
-    // Полная анимация
-    playRollAnimation()
-  }
-}
-```
+Анимации используют CSS transitions/transforms — при `prefers-reduced-motion: reduce` можно обнулить `transition-duration`.
