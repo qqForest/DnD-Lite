@@ -285,3 +285,36 @@ async def set_player_ready(
     )
     
     return {"message": f"Player ready status set to {data.is_ready}", "is_ready": data.is_ready}
+
+
+@router.patch("/players/{player_id}/movement")
+async def toggle_player_movement(
+    player_id: int,
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
+    """Toggle player movement permission. GM only."""
+    if not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Only GM can toggle movement")
+
+    target_player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.session_id == current_player.session_id
+    ).first()
+    if not target_player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    if target_player.is_gm:
+        raise HTTPException(status_code=400, detail="Cannot toggle GM movement")
+
+    target_player.can_move = not target_player.can_move
+    db.commit()
+    db.refresh(target_player)
+
+    from app.websocket.manager import manager
+    await manager.broadcast_event(
+        "player_movement_changed",
+        {"player_id": target_player.id, "can_move": target_player.can_move}
+    )
+
+    return {"player_id": target_player.id, "can_move": target_player.can_move}

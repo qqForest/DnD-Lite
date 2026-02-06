@@ -43,7 +43,7 @@
           :key="token.id"
           :token="token"
           :selected="selectedTokenId === token.id"
-          :is-read-only="isReadOnly"
+          :is-read-only="isTokenReadOnly(token)"
           @update="handleTokenUpdate"
           @select="handleTokenSelect"
         />
@@ -55,16 +55,25 @@
         <button @click="fitToScreen">Fit</button>
         <button @click="zoomIn">+</button>
         <button @click="zoomOut">-</button>
-        <button v-if="isGm" @click="addTestToken" title="Add Token">+ Token</button>
+        <button v-if="isGm" @click="showAddTokenModal = true" title="Add Token">+ Token</button>
     </div>
+
+    <!-- Add Token Modal -->
+    <AddTokenModal
+      v-model="showAddTokenModal"
+      @add="handleAddToken"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import type { MapToken as MapTokenType, MapTokenCreate } from '@/types/models'
 import { useMapStore } from '@/stores/map'
 import { useSessionStore } from '@/stores/session'
+import { useCharactersStore } from '@/stores/characters'
 import MapToken from './MapToken.vue'
+import AddTokenModal from './AddTokenModal.vue'
 
 const props = defineProps<{
   isReadOnly?: boolean
@@ -72,10 +81,12 @@ const props = defineProps<{
 
 const mapStore = useMapStore()
 const sessionStore = useSessionStore()
+const charactersStore = useCharactersStore()
 const container = ref<HTMLElement | null>(null)
 
 const isGm = computed(() => sessionStore.isGm)
 const selectedTokenId = ref<string | null>(null)
+const showAddTokenModal = ref(false)
 
 const stageConfig = ref({
   width: 800,
@@ -177,10 +188,33 @@ function handleDragEnd() {
   // Stage drag end
 }
 
+// Per-token read-only logic
+function isTokenReadOnly(token: MapTokenType): boolean {
+  if (!props.isReadOnly) return false  // GM — all tokens are draggable
+
+  // Player: allow only own character's token when can_move is enabled
+  const currentPlayer = sessionStore.currentPlayer
+  if (!currentPlayer?.can_move) return true
+
+  if (token.character_id) {
+    const character = charactersStore.characters.find(c => c.id === token.character_id)
+    if (character && character.player_id === sessionStore.playerId) {
+      return false  // Own token is draggable
+    }
+  }
+  return true
+}
+
 // Token Interaction
-function handleTokenUpdate(id: string, x: number, y: number) {
-  // Update store (API call)
-  mapStore.updateToken(id, { x, y })
+async function handleTokenUpdate(id: string, x: number, y: number) {
+  try {
+    await mapStore.updateToken(id, { x, y })
+  } catch (error: any) {
+    if (error?.response?.status === 403) {
+      console.warn('Not authorized to move this token')
+      await mapStore.fetchSessionMaps()
+    }
+  }
 }
 
 function handleTokenSelect(id: string) {
@@ -215,7 +249,7 @@ function zoomOut() {
     stageConfig.value.scaleY /= 1.2
 }
 
-// Test Methods (Temporary for MVP)
+// Map creation (keep for no-map state)
 async function createTestMap() {
     await mapStore.createMap({
         name: 'Battle Map 1',
@@ -223,21 +257,29 @@ async function createTestMap() {
         height: 1000,
         grid_scale: 50
     })
-    // Auto activate last created
     if (mapStore.maps.length > 0) {
         await mapStore.setActiveMap(mapStore.maps[mapStore.maps.length - 1].id)
     }
 }
 
-async function addTestToken() {
+// Add token from modal
+async function handleAddToken(data: MapTokenCreate) {
     if (!mapStore.activeMap) return
+
+    // Calculate viewport center for initial placement
+    const scale = stageConfig.value.scaleX
+    const viewW = stageConfig.value.width
+    const viewH = stageConfig.value.height
+    const stageX = stageConfig.value.x
+    const stageY = stageConfig.value.y
+    const centerX = (viewW / 2 - stageX) / scale
+    const centerY = (viewH / 2 - stageY) / scale
+
     await mapStore.addToken(mapStore.activeMap.id, {
-        x: 100,
-        y: 100,
-        type: 'character',
+        ...data,
+        x: centerX,
+        y: centerY,
         layer: 'tokens',
-        label: 'T' + Math.floor(Math.random() * 100),
-        color: '#'+Math.floor(Math.random()*16777215).toString(16)
     })
 }
 

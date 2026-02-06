@@ -125,6 +125,7 @@ export interface Player {
   is_gm: boolean
   is_online?: boolean
   is_ready?: boolean
+  can_move?: boolean
 }
 
 export interface Character {

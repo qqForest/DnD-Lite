@@ -196,6 +196,13 @@ export const useSessionStore = defineStore('session', () => {
         players.value[index].is_ready = data.is_ready
       }
     })
+
+    wsService.on('player_movement_changed', (data: { player_id: number; can_move: boolean }) => {
+      const player = players.value.find(p => p.id === data.player_id)
+      if (player) {
+        player.can_move = data.can_move
+      }
+    })
   }
 
   function saveUserTokens() {
@@ -245,6 +252,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     id,
+    playerId,
     code,
     token,
     isGm,

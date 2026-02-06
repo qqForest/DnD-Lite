@@ -171,6 +171,11 @@ export const sessionApi = {
   setReady: async (isReady: boolean): Promise<{ message: string; is_ready: boolean }> => {
     const response = await api.post<{ message: string; is_ready: boolean }>('/session/ready', { is_ready: isReady })
     return response.data
+  },
+
+  toggleMovement: async (playerId: number): Promise<{ player_id: number; can_move: boolean }> => {
+    const response = await api.patch<{ player_id: number; can_move: boolean }>(`/players/${playerId}/movement`)
+    return response.data
   }
 }
 

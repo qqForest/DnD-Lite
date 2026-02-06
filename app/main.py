@@ -1,4 +1,8 @@
-import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy.orm import Session as DBSession
 import json
 import logging
 import os
@@ -180,27 +184,36 @@ if os.path.exists(static_path):
     if os.path.exists(os.path.join(static_path, "assets")):
         app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="static")
 
-    # Serve SPA via 404 handler instead of catch-all route to avoid
-    # intercepting API POST/PUT/DELETE requests with 405 errors
     @app.exception_handler(StarletteHTTPException)
     async def spa_exception_handler(request: Request, exc: StarletteHTTPException):
-        # For API routes, return JSON error as-is
-        if request.url.path.startswith("/api"):
-            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        # For API routes, return JSON errors as-is
+        if request.url.path.startswith("/api") or request.url.path.startswith("/ws"):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+            )
 
         # For 404 on non-API routes, serve SPA index.html
         if exc.status_code == 404:
-            # Check if a static file exists at the requested path
-            requested_path = request.url.path.lstrip("/")
-            file_path = os.path.join(static_path, requested_path)
-            if os.path.isfile(file_path):
+            # Check if the requested file exists as a static file
+            clean_path = request.url.path.lstrip("/")
+            file_path = os.path.join(static_path, clean_path)
+            if clean_path and os.path.isfile(file_path):
                 return FileResponse(file_path)
-            return FileResponse(os.path.join(static_path, "index.html"))
 
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            index_path = os.path.join(static_path, "index.html")
+            if os.path.isfile(index_path):
+                return FileResponse(index_path)
 
+        # For all other HTTP errors on non-API routes, return JSON
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+
+    # Serve index.html at root
     @app.get("/")
-    async def serve_index():
+    async def serve_root():
         return FileResponse(os.path.join(static_path, "index.html"))
 else:
     @app.get("/")
