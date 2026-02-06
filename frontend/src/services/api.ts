@@ -204,6 +204,11 @@ export const charactersApi = {
 
   delete: async (characterId: number): Promise<void> => {
     await api.delete(`/characters/${characterId}`)
+  },
+
+  generateAvatar: async (characterId: number): Promise<Character> => {
+    const response = await api.post<Character>(`/characters/${characterId}/generate-avatar`)
+    return response.data
   }
 }
 
@@ -388,6 +393,11 @@ export const userCharactersApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/me/characters/${id}`)
+  },
+
+  generateAvatar: async (id: number): Promise<UserCharacter> => {
+    const response = await api.post<UserCharacter>(`/me/characters/${id}/generate-avatar`)
+    return response.data
   }
 }
 

@@ -1,7 +1,7 @@
 <template>
   <div :class="['character-card', classTypeClass]" @click="$emit('click')">
     <div class="character-avatar">
-      <img v-if="avatar" :src="avatar" :alt="character.name" />
+      <img v-if="avatarSrc" :src="avatarSrc" :alt="character.name" />
       <span v-else class="avatar-placeholder">{{ initials }}</span>
     </div>
     <div class="character-info">
@@ -29,6 +29,10 @@ const props = defineProps<{
 defineEmits<{
   click: []
 }>()
+
+const avatarSrc = computed(() => {
+  return props.avatar || (props.character as any).avatar_url || null
+})
 
 const initials = computed(() => {
   return props.character.name

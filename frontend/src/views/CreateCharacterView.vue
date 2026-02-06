@@ -59,6 +59,19 @@
       </section>
 
       <section class="section">
+        <h2 class="section-title">Внешность</h2>
+        <div class="form-group">
+          <label class="label">Описание внешности (для генерации аватара)</label>
+          <textarea
+            class="appearance-textarea"
+            v-model="form.appearance"
+            placeholder="Опишите внешность персонажа: раса, телосложение, черты лица, одежда, особые приметы..."
+            rows="3"
+          ></textarea>
+        </div>
+      </section>
+
+      <section class="section">
         <h2 class="section-title">Здоровье</h2>
         <div class="hp-fields">
           <div class="form-group">
@@ -125,6 +138,7 @@ const form = reactive({
   charisma: 10,
   max_hp: 10,
   current_hp: 10,
+  appearance: '',
 })
 
 const statFields = [
@@ -187,6 +201,7 @@ async function handleSubmit() {
       charisma: form.charisma,
       max_hp: form.max_hp,
       current_hp: form.current_hp,
+      appearance: form.appearance.trim() || null,
     })
     toast.success(isNpc.value ? 'NPC создан!' : 'Персонаж создан!')
     router.push({ name: 'profile' })
@@ -284,6 +299,23 @@ async function handleSubmit() {
   color: var(--color-danger, #ef4444);
   margin-top: 2px;
   display: block;
+}
+
+.appearance-textarea {
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.appearance-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .form-actions {

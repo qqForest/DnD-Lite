@@ -39,6 +39,26 @@ MIGRATIONS = [
         "column": "icon",
         "sql": "ALTER TABLE map_tokens ADD COLUMN icon VARCHAR",
     },
+    {
+        "table": "user_characters",
+        "column": "appearance",
+        "sql": "ALTER TABLE user_characters ADD COLUMN appearance TEXT",
+    },
+    {
+        "table": "user_characters",
+        "column": "avatar_url",
+        "sql": "ALTER TABLE user_characters ADD COLUMN avatar_url VARCHAR",
+    },
+    {
+        "table": "characters",
+        "column": "appearance",
+        "sql": "ALTER TABLE characters ADD COLUMN appearance TEXT",
+    },
+    {
+        "table": "characters",
+        "column": "avatar_url",
+        "sql": "ALTER TABLE characters ADD COLUMN avatar_url VARCHAR",
+    },
 ]
 
 

@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./dnd_lite.db"
     secret_key: str = "dev-secret-key-change-in-production"
     
+    # YandexART Settings
+    yandex_art_folder_id: str = ""
+    yandex_art_api_key: str = ""
+
     # JWT Settings
     jwt_secret_key: str = "dev-jwt-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"

@@ -142,6 +142,50 @@ async def update_character(
     return character
 
 
+@router.post("/{character_id}/generate-avatar", response_model=CharacterResponse)
+async def generate_character_avatar(
+    character_id: int,
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
+    """Generate avatar for a session character. Owner or GM only."""
+    character = (
+        db.query(Character)
+        .join(Player)
+        .filter(
+            Character.id == character_id,
+            Player.session_id == current_player.session_id
+        )
+        .first()
+    )
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    if character.player_id != current_player.id and not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not character.appearance:
+        raise HTTPException(status_code=400, detail="Character has no appearance description")
+
+    from app.services.avatar import generate_avatar
+    try:
+        avatar_url = await generate_avatar(character.appearance)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Avatar generation failed: {e}")
+
+    character.avatar_url = avatar_url
+    db.commit()
+    db.refresh(character)
+
+    await manager.broadcast_event("character_updated", {
+        "character": CharacterResponse.model_validate(character).model_dump()
+    })
+
+    return character
+
+
 @router.delete("/{character_id}")
 async def delete_character(
     character_id: int,

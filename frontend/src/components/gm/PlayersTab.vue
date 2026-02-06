@@ -13,6 +13,16 @@
         <div class="player-status">
           <span :class="['status-dot', { online: player.is_online }]"></span>
         </div>
+        <div class="player-avatar-slot">
+          <img
+            v-if="playerAvatar(player.id)"
+            :src="playerAvatar(player.id)!"
+            class="player-avatar-img"
+          />
+          <span v-else class="player-avatar-placeholder">
+            {{ player.name.charAt(0).toUpperCase() }}
+          </span>
+        </div>
         <div class="player-info">
           <div class="player-name">
             {{ player.name }}
@@ -22,7 +32,7 @@
             </span>
           </div>
           <div v-if="charactersStore.byPlayer(player.id).length > 0" class="player-characters">
-            {{ charactersStore.byPlayer(player.id).length }} персонаж(ей)
+            {{ charactersStore.byPlayer(player.id)[0].name }}
           </div>
         </div>
 
@@ -73,6 +83,14 @@ const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 
 const openDropdownId = ref<number | null>(null)
+
+function playerAvatar(playerId: number): string | null {
+  const chars = charactersStore.byPlayer(playerId)
+  if (chars.length > 0 && chars[0].avatar_url) {
+    return chars[0].avatar_url
+  }
+  return null
+}
 
 function toggleDropdown(playerId: number) {
   openDropdownId.value = openDropdownId.value === playerId ? null : playerId
@@ -170,6 +188,32 @@ onUnmounted(() => {
 
 .status-dot.online {
   background: var(--color-success);
+}
+
+.player-avatar-slot {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.player-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
 }
 
 .player-info {

@@ -77,6 +77,36 @@ def update_user_character(
     return character
 
 
+@router.post("/{character_id}/generate-avatar", response_model=UserCharacterResponse)
+async def generate_character_avatar(
+    character_id: int,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db)
+):
+    character = db.query(UserCharacter).filter(
+        UserCharacter.id == character_id,
+        UserCharacter.user_id == current_user.id
+    ).first()
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    if not character.appearance:
+        raise HTTPException(status_code=400, detail="Character has no appearance description")
+
+    from app.services.avatar import generate_avatar
+    try:
+        avatar_url = await generate_avatar(character.appearance)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Avatar generation failed: {e}")
+
+    character.avatar_url = avatar_url
+    db.commit()
+    db.refresh(character)
+    return character
+
+
 @router.delete("/{character_id}", status_code=204)
 def delete_user_character(
     character_id: int,
