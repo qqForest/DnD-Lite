@@ -151,12 +151,7 @@ export const useSessionStore = defineStore('session', () => {
 
   const isHandlersSetup = ref<boolean>(false)
 
-  function connectWebSocket() {
-    if (!token.value) return
-
-    wsService.disconnect()
-    wsService.connect(token.value)
-
+  function setupWebSocketHandlers() {
     if (isHandlersSetup.value) return
     isHandlersSetup.value = true
 
@@ -203,6 +198,18 @@ export const useSessionStore = defineStore('session', () => {
         player.can_move = data.can_move
       }
     })
+  }
+
+  function connectWebSocket() {
+    if (!token.value) return
+
+    // Don't reconnect if already connected/connecting with the same token
+    if (!wsService.isActiveFor(token.value)) {
+      wsService.disconnect()
+      wsService.connect(token.value)
+    }
+
+    setupWebSocketHandlers()
   }
 
   function saveUserTokens() {
@@ -272,6 +279,7 @@ export const useSessionStore = defineStore('session', () => {
     startSession,
     setReady,
     connectWebSocket,
+    setupWebSocketHandlers,
     clearSession
   }
 })

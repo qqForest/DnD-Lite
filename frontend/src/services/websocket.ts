@@ -140,6 +140,12 @@ class WebSocketService {
   get isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN
   }
+
+  /** Check if WS is connected or connecting with the given token */
+  isActiveFor(token: string): boolean {
+    return this.token === token && this.ws != null &&
+      (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)
+  }
 }
 
 export const wsService = new WebSocketService()

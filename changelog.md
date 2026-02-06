@@ -1,3 +1,11 @@
+2026-02-06: Исправлен статус "Отключено" и невидимость игроков у ГМ на VPS
+  - Причина: при перезагрузке страницы useWebSocket подключал WS напрямую через wsService, минуя session store
+  - Обработчики session store (player_joined, player_left, etc.) не регистрировались → новые игроки не появлялись
+  - sessionStore.isConnected не обновлялся → статус показывал "Отключено"
+  - Исправление: вынесен setupWebSocketHandlers() из connectWebSocket(), вызывается из useWebSocket composable
+  - useWebSocket теперь использует sessionStore.connectWebSocket() вместо прямого wsService.connect()
+  - Добавлена защита от двойного переподключения через wsService.isActiveFor(token)
+
 2026-02-06: Исправлен баг дублирования токенов у ГМ при перемещении игроком
   - Причина: race condition между REST-ответом и WebSocket-событием token_added при создании токена
   - WS-событие приходило раньше REST-ответа, создавая вторую копию токена в массиве
