@@ -3,6 +3,9 @@ services:
     build: .
     network_mode: host
     command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    env_file:
+      - .env
     volumes:
       - ./dnd_lite.db:/app/dnd_lite.db
+      - ./uploads:/app/uploads
     restart: always
