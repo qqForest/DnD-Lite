@@ -153,7 +153,8 @@ async def add_token(
         rotation=token_data.rotation,
         layer=token_data.layer,
         label=token_data.label,
-        color=token_data.color
+        color=token_data.color,
+        icon=token_data.icon
     )
     db.add(new_token)
     db.commit()
@@ -176,7 +177,8 @@ async def add_token(
                 "rotation": new_token.rotation,
                 "layer": new_token.layer,
                 "label": new_token.label,
-                "color": new_token.color
+                "color": new_token.color,
+                "icon": new_token.icon
             }
         },
         exclude_token=current_player.token
@@ -220,7 +222,8 @@ async def update_token(
     if token_data.layer is not None: token.layer = token_data.layer
     if token_data.label is not None: token.label = token_data.label
     if token_data.color is not None: token.color = token_data.color
-    
+    if token_data.icon is not None: token.icon = token_data.icon
+
     db.commit()
     db.refresh(token)
 

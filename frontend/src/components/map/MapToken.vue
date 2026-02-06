@@ -10,6 +10,7 @@
     @dragend="onDragEnd"
     @dragmove="onDragMove"
     @click="onClick"
+    @contextmenu="onContextMenu"
   >
     <!-- Selection Halo -->
     <v-circle
@@ -43,6 +44,12 @@
       }"
     />
 
+    <!-- Icon overlay (белый силуэт внутри круга) -->
+    <v-path
+      v-if="iconPathData"
+      :config="iconConfig"
+    />
+
     <!-- Label -->
     <v-text
       :config="{
@@ -67,6 +74,7 @@ import { computed } from 'vue'
 import type { MapToken } from '@/types/models'
 import { useCharactersStore } from '@/stores/characters'
 import { useSessionStore } from '@/stores/session'
+import { getTokenIcon } from '@/data/tokenIcons'
 
 const props = defineProps<{
   token: MapToken
@@ -77,6 +85,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update', id: string, x: number, y: number): void
   (e: 'select', id: string): void
+  (e: 'contextmenu', id: string, x: number, y: number): void
 }>()
 
 const charactersStore = useCharactersStore()
@@ -88,6 +97,26 @@ const isOwnMovable = computed(() => {
   if (!currentPlayer || currentPlayer.is_gm || !currentPlayer.can_move) return false
   const character = charactersStore.characters.find(c => c.id === props.token.character_id)
   return character?.player_id === sessionStore.playerId
+})
+
+const iconDef = computed(() => props.token.icon ? getTokenIcon(props.token.icon) : null)
+const iconPathData = computed(() => iconDef.value?.pathData ?? null)
+
+const iconConfig = computed(() => {
+  if (!iconPathData.value) return {}
+  const tokenRadius = 30 * props.token.scale
+  const iconSize = tokenRadius * 1.4
+  const scaleFactor = iconSize / 512
+  return {
+    data: iconPathData.value,
+    fill: 'white',
+    opacity: 0.9,
+    x: -iconSize / 2,
+    y: -iconSize / 2,
+    scaleX: scaleFactor,
+    scaleY: scaleFactor,
+    listening: false,
+  }
 })
 
 const label = computed(() => {
@@ -116,5 +145,11 @@ function onDragMove(e: any) {
 
 function onClick() {
   emit('select', props.token.id)
+}
+
+function onContextMenu(e: any) {
+  e.evt.preventDefault()
+  e.cancelBubble = true
+  emit('contextmenu', props.token.id, e.evt.clientX, e.evt.clientY)
 }
 </script>

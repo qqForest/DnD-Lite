@@ -16,16 +16,29 @@
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
       @wheel="handleWheel"
+      @contextmenu="handleStageContextMenu"
     >
       <v-layer ref="backgroundLayer">
-        <!-- Background Image or Color -->
+        <!-- Background color fallback -->
         <v-rect
             :config="{
                 x: 0,
                 y: 0,
                 width: mapStore.activeMap!.width,
                 height: mapStore.activeMap!.height,
-                fill: '#2c2c2c' // Placeholder background
+                fill: '#2c2c2c'
+            }"
+        />
+        <!-- Background image -->
+        <v-image
+            v-if="bgImage"
+            :config="{
+                x: 0,
+                y: 0,
+                width: mapStore.activeMap!.width,
+                height: mapStore.activeMap!.height,
+                image: bgImage,
+                listening: false
             }"
         />
         
@@ -46,17 +59,66 @@
           :is-read-only="isTokenReadOnly(token)"
           @update="handleTokenUpdate"
           @select="handleTokenSelect"
+          @contextmenu="handleTokenContextMenu"
         />
       </v-layer>
     </v-stage>
     
-    <!-- Controls Overlay -->
-    <div class="map-controls">
-        <button @click="fitToScreen">Fit</button>
-        <button @click="zoomIn">+</button>
-        <button @click="zoomOut">-</button>
-        <button v-if="isGm" @click="showAddTokenModal = true" title="Add Token">+ Token</button>
+    <!-- Controls Toolbar -->
+    <div class="map-toolbar">
+      <div class="toolbar-group">
+        <button class="toolbar-btn" @click="fitToScreen" title="Вписать в экран">
+          <Maximize2 :size="18" />
+        </button>
+        <button class="toolbar-btn" @click="zoomIn" title="Приблизить">
+          <ZoomIn :size="18" />
+        </button>
+        <button class="toolbar-btn" @click="zoomOut" title="Отдалить">
+          <ZoomOut :size="18" />
+        </button>
+      </div>
+      <div v-if="isGm" class="toolbar-divider" />
+      <div v-if="isGm" class="toolbar-group">
+        <button class="toolbar-btn toolbar-btn--accent" @click="showAddTokenModal = true" title="Добавить токен">
+          <Plus :size="18" />
+        </button>
+      </div>
     </div>
+
+    <!-- Token Context Menu -->
+    <Teleport to="body">
+      <Transition name="ctx-menu">
+        <div
+          v-if="ctxMenu.visible"
+          class="ctx-menu"
+          :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+          @click.stop
+        >
+          <button class="ctx-menu-item" @click="confirmAction('delete')">
+            <Trash2 :size="16" />
+            <span>Удалить</span>
+          </button>
+          <button
+            v-if="ctxMenuToken?.type === 'monster'"
+            class="ctx-menu-item ctx-menu-item--danger"
+            @click="confirmAction('kill')"
+          >
+            <Skull :size="16" />
+            <span>Убить</span>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Confirm Modal -->
+    <ConfirmModal
+      v-model="showConfirmModal"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmBtnText"
+      :danger="true"
+      @confirm="executeConfirmedAction"
+    />
 
     <!-- Add Token Modal -->
     <AddTokenModal
@@ -67,13 +129,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { MapToken as MapTokenType, MapTokenCreate } from '@/types/models'
 import { useMapStore } from '@/stores/map'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
+import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull } from 'lucide-vue-next'
 import MapToken from './MapToken.vue'
 import AddTokenModal from './AddTokenModal.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const props = defineProps<{
   isReadOnly?: boolean
@@ -87,6 +151,92 @@ const container = ref<HTMLElement | null>(null)
 const isGm = computed(() => sessionStore.isGm)
 const selectedTokenId = ref<string | null>(null)
 const showAddTokenModal = ref(false)
+
+// Context menu state
+const ctxMenu = reactive({ visible: false, x: 0, y: 0, tokenId: '' })
+const ctxMenuToken = computed(() => {
+  if (!ctxMenu.tokenId || !mapStore.activeMap) return null
+  return mapStore.activeMap.tokens.find(t => t.id === ctxMenu.tokenId) || null
+})
+const showConfirmModal = ref(false)
+const pendingAction = ref<'delete' | 'kill' | null>(null)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const confirmBtnText = ref('')
+
+function handleTokenContextMenu(id: string, x: number, y: number) {
+  if (!isGm.value) return
+  ctxMenu.visible = true
+  ctxMenu.tokenId = id
+  ctxMenu.x = x
+  ctxMenu.y = y
+  selectedTokenId.value = id
+}
+
+function closeCtxMenu() {
+  ctxMenu.visible = false
+}
+
+function confirmAction(action: 'delete' | 'kill') {
+  closeCtxMenu()
+  pendingAction.value = action
+  const tokenLabel = ctxMenuToken.value?.label || 'токен'
+  if (action === 'kill') {
+    confirmTitle.value = 'Подтверждение убийства'
+    confirmMessage.value = `Убить «${tokenLabel}»? Токен будет удалён с карты.`
+    confirmBtnText.value = 'Убить'
+  } else {
+    confirmTitle.value = 'Удаление токена'
+    confirmMessage.value = `Удалить «${tokenLabel}» с карты?`
+    confirmBtnText.value = 'Удалить'
+  }
+  showConfirmModal.value = true
+}
+
+async function executeConfirmedAction() {
+  showConfirmModal.value = false
+  if (!ctxMenu.tokenId) return
+  try {
+    await mapStore.deleteToken(ctxMenu.tokenId)
+  } catch {
+    console.error('Failed to delete token')
+  }
+  selectedTokenId.value = null
+  pendingAction.value = null
+}
+
+function onGlobalClick() {
+  if (ctxMenu.visible) closeCtxMenu()
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && ctxMenu.visible) closeCtxMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', onGlobalClick)
+  document.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onGlobalClick)
+  document.removeEventListener('keydown', onKeydown)
+})
+
+// Background image loading
+const bgImage = ref<HTMLImageElement | null>(null)
+const bgUrl = computed(() => mapStore.activeMap?.background_url || null)
+
+watch(bgUrl, (url) => {
+  if (url) {
+    const img = new window.Image()
+    img.src = url
+    img.onload = () => { bgImage.value = img }
+    img.onerror = () => { bgImage.value = null }
+  } else {
+    bgImage.value = null
+  }
+}, { immediate: true })
 
 const stageConfig = ref({
   width: 800,
@@ -178,6 +328,11 @@ function handleWheel(e: any) {
   
   stageConfig.value.x = newPos.x
   stageConfig.value.y = newPos.y
+}
+
+function handleStageContextMenu(e: any) {
+  e.evt.preventDefault()
+  if (ctxMenu.visible) closeCtxMenu()
 }
 
 function handleDragStart() {
@@ -287,35 +442,133 @@ async function handleAddToken(data: MapTokenCreate) {
 
 <style scoped>
 .game-map-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background: #1a1a1a;
-    overflow: hidden;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--color-bg-tertiary, #0f0f1a);
+  overflow: hidden;
 }
 
 .no-map, .loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-secondary);
+  gap: var(--spacing-3);
 }
 
-.map-controls {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-    background: rgba(0,0,0,0.5);
-    padding: 10px;
-    border-radius: 8px;
+/* Toolbar */
+.map-toolbar {
+  position: absolute;
+  bottom: var(--spacing-4);
+  right: var(--spacing-4);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  background: var(--color-bg-secondary, #16213e);
+  border: 1px solid var(--alpha-overlay-medium, rgba(255,255,255,0.1));
+  padding: var(--spacing-1);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
-button {
-    padding: 5px 10px;
-    cursor: pointer;
+.toolbar-group {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--alpha-overlay-medium, rgba(255,255,255,0.1));
+  margin: 0 2px;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--color-text-secondary, #a0a0a0);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.toolbar-btn:hover {
+  background: var(--alpha-overlay-light, rgba(255,255,255,0.05));
+  color: var(--color-text-primary, #eaeaea);
+}
+
+.toolbar-btn:active {
+  transform: scale(0.92);
+}
+
+.toolbar-btn--accent {
+  color: var(--color-accent-primary, #e94560);
+}
+
+.toolbar-btn--accent:hover {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--color-accent-primary, #e94560);
+}
+</style>
+
+<style>
+/* Context menu (not scoped — teleported to body) */
+.ctx-menu {
+  position: fixed;
+  z-index: 800;
+  min-width: 160px;
+  background: var(--color-bg-secondary, #16213e);
+  border: 1px solid var(--alpha-overlay-medium, rgba(255,255,255,0.1));
+  border-radius: var(--radius-md, 8px);
+  padding: var(--spacing-1, 4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary, #a0a0a0);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.ctx-menu-item:hover {
+  background: var(--alpha-overlay-light, rgba(255,255,255,0.05));
+  color: var(--color-text-primary, #eaeaea);
+}
+
+.ctx-menu-item--danger {
+  color: var(--color-danger, #ef4444);
+}
+
+.ctx-menu-item--danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger, #ef4444);
+}
+
+.ctx-menu-enter-active,
+.ctx-menu-leave-active {
+  transition: all 100ms ease;
+}
+
+.ctx-menu-enter-from,
+.ctx-menu-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>

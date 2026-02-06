@@ -29,6 +29,7 @@ import type {
   UserCharacterUpdate,
   UserMap,
   UserMapCreate,
+  UserMapUpdate,
   UserStats
 } from '@/types/models'
 
@@ -407,8 +408,24 @@ export const userMapsApi = {
     return response.data
   },
 
+  update: async (id: string, data: UserMapUpdate): Promise<UserMap> => {
+    const response = await api.patch<UserMap>(`/me/maps/${id}`, data)
+    return response.data
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/me/maps/${id}`)
+  },
+
+  uploadBackground: async (file: File): Promise<{ url: string; width: number; height: number }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<{ url: string; width: number; height: number }>(
+      '/me/maps/upload-background',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return response.data
   }
 }
 

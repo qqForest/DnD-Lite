@@ -34,6 +34,11 @@ MIGRATIONS = [
         "column": "can_move",
         "sql": "ALTER TABLE players ADD COLUMN can_move BOOLEAN DEFAULT 0",
     },
+    {
+        "table": "map_tokens",
+        "column": "icon",
+        "sql": "ALTER TABLE map_tokens ADD COLUMN icon VARCHAR",
+    },
 ]
 
 
