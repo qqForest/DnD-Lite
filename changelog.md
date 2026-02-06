@@ -14,6 +14,26 @@
   - Frontend: Кнопка "Сохранить в библиотеку" (Save) в тулбаре карты во время игровой сессии (только GM)
   - Токены игроков (character_id != null) не сохраняются в библиотеку — они сессионные
 
+2026-02-06: Отображение аватаров персонажей во всём интерфейсе
+  - CharacterCard: автоматически показывает avatar_url из Character без явного пропа
+  - Лобби GM (PlayersLobbyList): аватар в карточке персонажа при раскрытии игрока
+  - Лобби игрока (PlayerLobbyView): аватар в карточке персонажа
+  - Интерфейс игрока (PlayerView): аватар в нижней панели с персонажем
+  - Панель GM (PlayersTab): мини-аватар (32px) рядом с именем игрока + имя персонажа
+  - Редактор персонажа (EditCharacterView): большой аватар 160px по центру с именем под ним
+
+2026-02-06: Генерация аватара персонажа через YandexART
+  - Backend: Поля appearance (Text) и avatar_url (String) в моделях UserCharacter и Character + миграции
+  - Backend: Сервис app/services/avatar.py — генерация через YandexART SDK (yandex-cloud-ml-sdk), сохранение в uploads/avatars/
+  - Backend: Стилевой промпт D&D 5e в app/core/avatar.py
+  - Backend: Эндпоинты POST /me/characters/{id}/generate-avatar и POST /characters/{id}/generate-avatar
+  - Backend: Копирование appearance и avatar_url при join сессии (UserCharacter → Character)
+  - Frontend: Поле описания внешности в CreateCharacterView и EditCharacterView
+  - Frontend: Секция «Внешность и аватар» в EditCharacterView с превью, кнопкой генерации и спиннером
+  - Frontend: MapToken — аватар персонажа в круглом токене через Konva clipFunc + v-image (вместо цветного круга)
+  - Frontend: UserCharacterCard — маленький аватар-превью рядом с именем
+  - Frontend: API методы generateAvatar в userCharactersApi и charactersApi
+
 2026-02-06: Редизайн управления картой + контекстное меню токенов
   - Тулбар карты: иконки lucide (Maximize2, ZoomIn, ZoomOut, Plus) вместо текстовых кнопок, стилизация под дизайн-систему
   - ПКМ на токене (только GM): контекстное меню с опциями «Удалить» и «Убить» (для монстров)

@@ -60,6 +60,8 @@ export interface UserCharacter {
   charisma: number
   max_hp: number
   current_hp: number
+  appearance: string | null
+  avatar_url: string | null
   sessions_played: number
   created_at: string
 }
@@ -77,6 +79,7 @@ export interface UserCharacterCreate {
   charisma?: number
   max_hp?: number
   current_hp?: number
+  appearance?: string | null
 }
 
 export interface UserCharacterUpdate {
@@ -92,6 +95,7 @@ export interface UserCharacterUpdate {
   charisma?: number
   max_hp?: number
   current_hp?: number
+  appearance?: string | null
 }
 
 export interface UserMapToken {
@@ -189,6 +193,8 @@ export interface Character {
   charisma: number
   max_hp: number
   current_hp: number
+  appearance: string | null
+  avatar_url: string | null
 }
 
 export interface CharacterCreate {

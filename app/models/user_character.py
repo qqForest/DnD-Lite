@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -26,6 +26,10 @@ class UserCharacter(Base):
     # Hit points
     max_hp = Column(Integer, default=10)
     current_hp = Column(Integer, default=10)
+
+    # Appearance & Avatar
+    appearance = Column(Text, nullable=True)
+    avatar_url = Column(String, nullable=True)
 
     # Stats
     sessions_played = Column(Integer, default=0)

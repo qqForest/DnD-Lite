@@ -33,8 +33,20 @@
       }"
     />
 
-    <!-- Token Body -->
+    <!-- Token Body: avatar image or colored circle -->
+    <v-group v-if="avatarImage" :config="{ clipFunc: clipCircle }">
+      <v-image
+        :config="{
+          image: avatarImage,
+          x: -30 * token.scale,
+          y: -30 * token.scale,
+          width: 60 * token.scale,
+          height: 60 * token.scale,
+        }"
+      />
+    </v-group>
     <v-circle
+      v-else
       :config="{
         radius: 30 * token.scale,
         fill: token.color || '#cccccc',
@@ -44,9 +56,19 @@
       }"
     />
 
-    <!-- Icon overlay (белый силуэт внутри круга) -->
+    <!-- Border ring (over avatar or colored circle) -->
+    <v-circle
+      :config="{
+        radius: 30 * token.scale,
+        stroke: avatarImage ? '#333' : 'black',
+        strokeWidth: avatarImage ? 2 : 1,
+        shadowBlur: avatarImage ? 0 : 5,
+      }"
+    />
+
+    <!-- Icon overlay (белый силуэт внутри круга) — only without avatar -->
     <v-path
-      v-if="iconPathData"
+      v-if="iconPathData && !avatarImage"
       :config="iconConfig"
     />
 
@@ -70,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { MapToken } from '@/types/models'
 import { useCharactersStore } from '@/stores/characters'
 import { useSessionStore } from '@/stores/session'
@@ -98,6 +120,31 @@ const isOwnMovable = computed(() => {
   const character = charactersStore.characters.find(c => c.id === props.token.character_id)
   return character?.player_id === sessionStore.playerId
 })
+
+const avatarSrc = computed(() => {
+  if (!props.token.character_id) return null
+  const char = charactersStore.characters.find(c => c.id === props.token.character_id)
+  return char?.avatar_url || null
+})
+
+const avatarImage = ref<HTMLImageElement | null>(null)
+
+watch(avatarSrc, (src) => {
+  if (src) {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => { avatarImage.value = img }
+    img.onerror = () => { avatarImage.value = null }
+    img.src = src
+  } else {
+    avatarImage.value = null
+  }
+}, { immediate: true })
+
+function clipCircle(ctx: any) {
+  const r = 30 * props.token.scale
+  ctx.arc(0, 0, r, 0, Math.PI * 2, false)
+}
 
 const iconDef = computed(() => props.token.icon ? getTokenIcon(props.token.icon) : null)
 const iconPathData = computed(() => iconDef.value?.pathData ?? null)

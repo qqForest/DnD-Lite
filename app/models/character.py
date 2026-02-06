@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -24,6 +24,10 @@ class Character(Base):
     # Hit points
     max_hp = Column(Integer, default=10)
     current_hp = Column(Integer, default=10)
+
+    # Appearance & Avatar
+    appearance = Column(Text, nullable=True)
+    avatar_url = Column(String, nullable=True)
 
     player = relationship("Player", back_populates="characters")
     items = relationship("Item", back_populates="character", cascade="all, delete-orphan")

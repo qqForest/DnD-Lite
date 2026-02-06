@@ -169,6 +169,8 @@ async def join_session(
                 charisma=user_char.charisma,
                 max_hp=user_char.max_hp,
                 current_hp=user_char.current_hp,
+                appearance=user_char.appearance,
+                avatar_url=user_char.avatar_url,
             )
             db.add(character)
             user_char.sessions_played = (user_char.sessions_played or 0) + 1

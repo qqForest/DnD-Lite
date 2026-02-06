@@ -2,6 +2,12 @@
   <div class="character-card" :class="{ selected, clickable }" @click="$emit('select')">
     <div class="card-header">
       <div class="card-title">
+        <img
+          v-if="character.avatar_url"
+          :src="character.avatar_url"
+          alt=""
+          class="card-avatar"
+        />
         <span class="name">{{ character.name }}</span>
         <span v-if="character.is_npc" class="badge npc-badge">NPC</span>
       </div>
@@ -96,6 +102,14 @@ const stats = [
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
+}
+
+.card-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .name {

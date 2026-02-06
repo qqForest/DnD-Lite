@@ -56,6 +56,49 @@
         </section>
 
         <section class="section">
+          <h2 class="section-title">Внешность и аватар</h2>
+
+          <div class="avatar-center">
+            <div class="avatar-preview-large">
+              <img
+                v-if="avatarUrl"
+                :src="avatarUrl"
+                alt="Аватар персонажа"
+                class="avatar-image-large"
+              />
+              <div v-else class="avatar-placeholder-large">
+                <span class="avatar-initials-large">{{ form.name ? form.name.charAt(0).toUpperCase() : '?' }}</span>
+              </div>
+            </div>
+            <div class="avatar-name">{{ form.name || 'Персонаж' }}</div>
+          </div>
+
+          <div class="form-group">
+            <label class="label">Описание внешности</label>
+            <textarea
+              class="appearance-textarea"
+              v-model="form.appearance"
+              placeholder="Опишите внешность персонажа: раса, телосложение, черты лица, одежда, особые приметы..."
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="avatar-generate-row">
+            <BaseButton
+              variant="primary"
+              size="sm"
+              :disabled="!form.appearance.trim() || generatingAvatar"
+              @click="handleGenerateAvatar"
+            >
+              <span v-if="generatingAvatar" class="spinner"></span>
+              {{ avatarUrl ? 'Перегенерировать аватар' : 'Сгенерировать аватар' }}
+            </BaseButton>
+            <p class="avatar-hint" v-if="!form.appearance.trim()">
+              Заполните описание внешности для генерации
+            </p>
+          </div>
+        </section>
+
+        <section class="section">
           <h2 class="section-title">Здоровье</h2>
           <div class="hp-fields">
             <div class="form-group">
@@ -111,6 +154,8 @@ const toast = useToast()
 const character = ref<UserCharacter | null>(null)
 const loadingChar = ref(true)
 const submitting = ref(false)
+const generatingAvatar = ref(false)
+const avatarUrl = ref<string | null>(null)
 
 const form = reactive({
   name: '',
@@ -124,6 +169,7 @@ const form = reactive({
   charisma: 10,
   max_hp: 10,
   current_hp: 10,
+  appearance: '',
 })
 
 const statFields = [
@@ -168,6 +214,8 @@ onMounted(async () => {
     form.charisma = char.charisma
     form.max_hp = char.max_hp
     form.current_hp = char.current_hp
+    form.appearance = char.appearance || ''
+    avatarUrl.value = char.avatar_url
   } catch (err: any) {
     toast.error('Персонаж не найден')
     router.push({ name: 'profile' })
@@ -192,6 +240,7 @@ async function handleSubmit() {
       charisma: form.charisma,
       max_hp: form.max_hp,
       current_hp: form.current_hp,
+      appearance: form.appearance.trim() || null,
     })
     toast.success('Персонаж обновлен!')
     router.push({ name: 'profile' })
@@ -199,6 +248,27 @@ async function handleSubmit() {
     toast.error(err.response?.data?.detail || 'Не удалось обновить персонажа')
   } finally {
     submitting.value = false
+  }
+}
+
+async function handleGenerateAvatar() {
+  if (!character.value || !form.appearance.trim()) return
+  generatingAvatar.value = true
+  try {
+    // Save appearance first if changed
+    if (form.appearance.trim() !== (character.value.appearance || '')) {
+      await userCharactersApi.update(character.value.id, {
+        appearance: form.appearance.trim(),
+      })
+    }
+    const updated = await userCharactersApi.generateAvatar(character.value.id)
+    avatarUrl.value = updated.avatar_url
+    character.value = updated
+    toast.success('Аватар сгенерирован!')
+  } catch (err: any) {
+    toast.error(err.response?.data?.detail || 'Не удалось сгенерировать аватар')
+  } finally {
+    generatingAvatar.value = false
   }
 }
 </script>
@@ -295,6 +365,96 @@ async function handleSubmit() {
   color: var(--color-danger, #ef4444);
   margin-top: 2px;
   display: block;
+}
+
+.appearance-textarea {
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.appearance-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.avatar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+}
+
+.avatar-preview-large {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--color-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-image-large {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder-large {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-initials-large {
+  font-size: 3rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.avatar-name {
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.avatar-generate-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-3);
+}
+
+.avatar-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: var(--spacing-1);
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .form-actions {

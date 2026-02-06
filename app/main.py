@@ -176,6 +176,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
 from fastapi.staticfiles import StaticFiles
 uploads_path = "uploads"
 os.makedirs(os.path.join(uploads_path, "maps"), exist_ok=True)
+os.makedirs(os.path.join(uploads_path, "avatars"), exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 # Mount static files from frontend/dist if it exists
