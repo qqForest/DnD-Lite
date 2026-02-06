@@ -1,3 +1,9 @@
+2026-02-06: Исправлен бесконечный цикл переподключений WebSocket на VPS
+  - Причина 1: отсутствовал import asyncio в main.py после мержа — heartbeat/timeout код падал с NameError сразу после подключения, WS закрывался, клиент переподключался бесконечно
+  - Причина 2: disconnect() в websocket.ts вызывал ws.close(), но async onclose запускал attemptReconnect(), создавая каскад лишних подключений
+  - Исправление: добавлен import asyncio, убраны дублированные импорты в main.py
+  - Исправление: disconnect() обнуляет onclose/onerror/onmessage перед close() чтобы предотвратить auto-reconnect
+
 2026-02-06: Исправлена потеря состояния сессии при обновлении страницы
   - isGm не сохранялся в localStorage → после F5 роутер считал GM игроком и перенаправлял
   - Backend: добавлено поле is_gm в SessionState ответ GET /session

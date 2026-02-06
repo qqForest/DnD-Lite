@@ -116,6 +116,10 @@ class WebSocketService {
       this.reconnectTimeout = null
     }
     if (this.ws) {
+      // Remove handlers before closing to prevent onclose from triggering attemptReconnect
+      this.ws.onclose = null
+      this.ws.onerror = null
+      this.ws.onmessage = null
       this.ws.close()
       this.ws = null
     }
