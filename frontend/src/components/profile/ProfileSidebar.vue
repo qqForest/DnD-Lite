@@ -9,29 +9,21 @@
           </div>
 
           <div class="sidebar-content">
-            <!-- Информация о сессии -->
-            <div class="section">
-              <h3>Информация о сессии</h3>
-              <div class="info-item">
-                <span class="label">Код сессии:</span>
-                <span class="value">{{ sessionStore.code }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">Игроков в сессии:</span>
-                <span class="value">{{ sessionStore.sessionState?.player_count || 0 }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">Статус:</span>
-                <span v-if="sessionStore.sessionStarted" class="status-badge started">
-                  Игра начата
-                </span>
-                <span v-else class="status-badge waiting">
-                  Ожидание начала
-                </span>
-              </div>
+            <div class="user-section">
+              <span class="display-name">{{ authStore.user?.display_name }}</span>
+              <span class="role-badge">{{ roleLabel }}</span>
             </div>
 
-            <!-- Дополнительные пункты меню можно добавить позже -->
+            <nav class="sidebar-nav">
+              <button class="nav-btn" @click="goHome">
+                <Home :size="20" />
+                <span>На главную</span>
+              </button>
+              <button class="nav-btn nav-btn--danger" @click="handleLogout">
+                <LogOut :size="20" />
+                <span>Выйти</span>
+              </button>
+            </nav>
           </div>
         </div>
       </div>
@@ -40,6 +32,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { Home, LogOut } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 
 defineProps<{
@@ -50,10 +46,34 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+const router = useRouter()
+const authStore = useAuthStore()
 const sessionStore = useSessionStore()
+
+const roleLabel = computed(() => {
+  const role = authStore.user?.role || 'player'
+  switch (role) {
+    case 'player': return 'Игрок'
+    case 'gm': return 'Game Master'
+    case 'both': return 'Игрок / GM'
+    default: return role
+  }
+})
 
 function close() {
   emit('update:modelValue', false)
+}
+
+function goHome() {
+  close()
+  router.push({ name: 'home' })
+}
+
+function handleLogout() {
+  close()
+  authStore.logout()
+  sessionStore.clearSession()
+  router.push({ name: 'login' })
 }
 </script>
 
@@ -104,6 +124,9 @@ function close() {
   font-size: var(--font-size-2xl);
   color: var(--color-text-secondary);
   transition: all var(--duration-fast);
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 
 .close-btn:hover {
@@ -117,54 +140,64 @@ function close() {
   padding: var(--spacing-4);
 }
 
-.section {
+.user-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--spacing-6);
 }
 
-.section h3 {
-  margin: 0 0 var(--spacing-3) 0;
+.display-name {
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.info-item {
+.role-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 500;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.nav-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-3);
-  background: var(--color-bg-secondary);
+  gap: var(--spacing-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--spacing-3) var(--spacing-4);
   border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-2);
-}
-
-.info-item .label {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.info-item .value {
+  background: none;
+  border: none;
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-  font-family: var(--font-family-mono);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
 }
 
-.status-badge {
-  display: inline-block;
-  padding: var(--spacing-1) var(--spacing-3);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+.nav-btn:hover {
+  background: var(--alpha-overlay-light);
 }
 
-.status-badge.started {
-  background: var(--color-success);
-  color: var(--color-text-inverse);
+.nav-btn--danger {
+  color: var(--color-danger, #ef4444);
 }
 
-.status-badge.waiting {
-  background: var(--color-warning);
-  color: var(--color-text-inverse);
+.nav-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Transitions */

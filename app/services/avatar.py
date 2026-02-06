@@ -26,7 +26,13 @@ async def generate_avatar(appearance_description: str) -> str:
     )
 
     operation = model.run_deferred([AVATAR_STYLE_PROMPT, appearance_description])
-    result = await asyncio.to_thread(operation.wait)
+    try:
+        result = await asyncio.to_thread(operation.wait)
+    except Exception as e:
+        err_str = str(e)
+        if "PERMISSION_DENIED" in err_str:
+            raise ValueError("Недостаточно средств на аккаунте Yandex Cloud")
+        raise
 
     avatar_dir = os.path.join("uploads", "avatars")
     os.makedirs(avatar_dir, exist_ok=True)

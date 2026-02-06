@@ -1,44 +1,42 @@
 <template>
   <div class="player-lobby-view">
-    <div class="lobby-container">
-      <header class="lobby-header">
-        <h1 class="lobby-title">Лобби игрока</h1>
-        <div class="header-info">
-          <span v-if="sessionStore.isConnected" class="connection-status connected">
-            ● Подключено
-          </span>
-          <span v-else class="connection-status disconnected">
-            ○ Отключено
-          </span>
-          <BaseButton variant="ghost" size="sm" @click="showLeaveModal = true">
-            Покинуть
-          </BaseButton>
-        </div>
-      </header>
+    <PlayerLobbyTopBar @toggle-sidebar="showSidebar = !showSidebar" />
 
-      <SessionCodeDisplay />
+    <div class="lobby-content">
+      <h2 class="section-title">Ваш персонаж</h2>
 
-      <BasePanel v-if="myCharacter" variant="elevated" class="character-preview">
-        <template #header>
-          <h3 class="panel-title">Ваш персонаж</h3>
-        </template>
-        <CharacterCard :character="myCharacter" />
-      </BasePanel>
+      <div v-if="characterForCard" class="card-wrapper">
+        <CharacterFlipCard :character="characterForCard" />
+      </div>
+      <p v-else class="no-character">Персонаж не выбран</p>
 
-      <ReadyButton />
+      <BaseButton
+        :variant="sessionStore.isReady ? 'primary' : 'secondary'"
+        size="lg"
+        :disabled="!myCharacter || readySetting"
+        class="ready-btn"
+        @click="toggleReady"
+      >
+        <CheckCircle v-if="sessionStore.isReady" :size="20" />
+        <Circle v-else :size="20" />
+        {{ readySetting ? 'Обновление...' : sessionStore.isReady ? 'Готов' : 'Не готов' }}
+      </BaseButton>
 
-      <div class="waiting-status">
-        <BasePanel variant="glass">
-          <div class="status-content">
-            <Clock :size="24" />
-            <div>
-              <p class="status-title">Ожидание начала игры</p>
-              <p class="status-description">GM начнет игру, когда все будут готовы</p>
-            </div>
-          </div>
-        </BasePanel>
+      <p class="ready-count">{{ readyCountText }}</p>
+
+      <div class="session-code">
+        <span class="session-code-label">Код сессии</span>
+        <button class="session-code-value" @click="copyCode">
+          <span>{{ sessionStore.code || '---' }}</span>
+          <Copy :size="16" />
+        </button>
       </div>
     </div>
+
+    <PlayerLobbySidebar
+      v-model="showSidebar"
+      @leave="showLeaveModal = true"
+    />
 
     <ConfirmModal
       v-model="showLeaveModal"
@@ -54,23 +52,27 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Clock } from 'lucide-vue-next'
+import { CheckCircle, Circle, Copy } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useToast } from '@/composables/useToast'
 import { wsService } from '@/services/websocket'
-import SessionCodeDisplay from '@/components/gm/SessionCodeDisplay.vue'
-import CharacterCard from '@/components/character/CharacterCard.vue'
-import ReadyButton from '@/components/player/ReadyButton.vue'
-import BasePanel from '@/components/common/BasePanel.vue'
+import type { UserCharacter } from '@/types/models'
+import PlayerLobbyTopBar from '@/components/player/PlayerLobbyTopBar.vue'
+import PlayerLobbySidebar from '@/components/player/PlayerLobbySidebar.vue'
+import CharacterFlipCard from '@/components/profile/CharacterFlipCard.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
+const toast = useToast()
 
+const showSidebar = ref(false)
 const showLeaveModal = ref(false)
+const readySetting = ref(false)
 
 const myCharacter = computed(() => {
   if (!sessionStore.currentPlayer) return null
@@ -78,7 +80,48 @@ const myCharacter = computed(() => {
   return chars.length > 0 ? chars[0] : null
 })
 
+const characterForCard = computed<UserCharacter | null>(() => {
+  const ch = myCharacter.value
+  if (!ch) return null
+  return {
+    ...ch,
+    is_npc: false,
+    user_id: 0,
+    sessions_played: 0,
+    created_at: '',
+  }
+})
+
+const readyCountText = computed(() => {
+  const nonGmPlayers = sessionStore.players.filter(p => !p.is_gm)
+  const readyCount = nonGmPlayers.filter(p => p.is_ready).length
+  const total = nonGmPlayers.length
+  return `${readyCount} из ${total} игроков готовы`
+})
+
 useWebSocket()
+
+async function toggleReady() {
+  if (!myCharacter.value || readySetting.value) return
+  readySetting.value = true
+  try {
+    await sessionStore.setReady(!sessionStore.isReady)
+  } catch (error: any) {
+    toast.error(error.response?.data?.detail || 'Не удалось изменить статус готовности')
+  } finally {
+    readySetting.value = false
+  }
+}
+
+async function copyCode() {
+  if (!sessionStore.code) return
+  try {
+    await navigator.clipboard.writeText(sessionStore.code)
+    toast.success('Код скопирован')
+  } catch {
+    toast.error('Не удалось скопировать')
+  }
+}
 
 function handleLeave() {
   sessionStore.clearSession()
@@ -86,26 +129,22 @@ function handleLeave() {
 }
 
 onMounted(async () => {
-  // Проверка аутентификации
   if (!sessionStore.isAuthenticated) {
     router.push({ name: 'home' })
     return
   }
 
-  // Если GM пытается зайти на страницу игрока - редирект
   if (sessionStore.isGm) {
     router.push({ name: 'gm-lobby' })
     return
   }
 
-  // Если сессия уже начата, редирект на основной интерфейс
   await sessionStore.fetchSessionState()
   if (sessionStore.sessionStarted) {
     router.push({ name: 'player' })
     return
   }
 
-  // Загрузка данных
   try {
     await sessionStore.fetchPlayers()
     await charactersStore.fetchAll()
@@ -113,15 +152,20 @@ onMounted(async () => {
     console.error('Failed to load lobby data:', error)
   }
 
-  // Настройка WebSocket handlers
+  // Fix бага: авто-выбор персонажа для корректной работы кнопки "Готов"
+  if (sessionStore.currentPlayer) {
+    const chars = charactersStore.byPlayer(sessionStore.currentPlayer.id)
+    if (chars.length > 0) {
+      charactersStore.select(chars[0].id)
+    }
+  }
+
   setupWebSocketHandlers()
 })
 
 function setupWebSocketHandlers() {
-  // Handlers для персонажей
   charactersStore.setupWebSocketHandlers()
 
-  // Handler для начала сессии
   wsService.on('session_started', () => {
     sessionStore.sessionStarted = true
     if (sessionStore.sessionState) {
@@ -135,89 +179,89 @@ function setupWebSocketHandlers() {
 <style scoped>
 .player-lobby-view {
   min-height: 100vh;
-  padding: var(--spacing-6);
   background: var(--color-bg-primary);
-}
-
-.lobby-container {
-  max-width: 800px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-6);
 }
 
-.lobby-header {
+.lobby-content {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-4);
+  padding: var(--spacing-6) var(--spacing-4);
+  gap: var(--spacing-4);
 }
 
-.lobby-title {
+.section-title {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
   color: var(--color-text-primary);
+  margin: 0;
+  align-self: flex-start;
 }
 
-.header-info {
+.card-wrapper {
+  width: 100%;
+  max-width: 300px;
+}
+
+.no-character {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  padding: var(--spacing-8) 0;
+  margin: 0;
+}
+
+.ready-btn {
+  width: 100%;
+  max-width: 300px;
   display: flex;
   align-items: center;
-  gap: var(--spacing-3);
+  justify-content: center;
+  gap: var(--spacing-2);
+  font-weight: var(--font-weight-semibold);
 }
 
-.connection-status {
+.ready-count {
   font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.session-code {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--spacing-2);
-}
-
-.connection-status.connected {
-  color: var(--color-success);
-}
-
-.connection-status.disconnected {
-  color: var(--color-text-muted);
-}
-
-.panel-title {
-  margin: 0;
-}
-
-.waiting-status {
   margin-top: var(--spacing-4);
 }
 
-.status-content {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-4);
-  padding: var(--spacing-4);
-}
-
-.status-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  margin: 0 0 var(--spacing-1) 0;
-  color: var(--color-text-primary);
-}
-
-.status-description {
+.session-code-label {
   font-size: var(--font-size-sm);
-  margin: 0;
   color: var(--color-text-secondary);
 }
 
-@media (max-width: 768px) {
-  .player-lobby-view {
-    padding: var(--spacing-4);
-  }
+.session-code-value {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  font-family: monospace;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--color-accent-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  -webkit-tap-highlight-color: transparent;
+}
 
-  .lobby-title {
-    font-size: var(--font-size-2xl);
-  }
+.session-code-value:active {
+  transform: scale(0.97);
 }
 </style>

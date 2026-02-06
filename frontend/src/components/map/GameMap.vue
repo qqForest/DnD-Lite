@@ -162,6 +162,7 @@ const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 const toast = useToast()
 const container = ref<HTMLElement | null>(null)
+const stage = ref<any>(null)
 
 const displayMap = computed<GameMapType | null>(() => {
   if (props.editorMode) return props.editorMap || null
@@ -245,6 +246,12 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', onGlobalClick)
   document.removeEventListener('keydown', onKeydown)
+
+  // Cleanup pinch events
+  if (pinchContainer) {
+    pinchContainer.removeEventListener('touchmove', handlePinchMove)
+    pinchContainer.removeEventListener('touchend', handlePinchEnd)
+  }
 })
 
 // Background image loading
@@ -272,7 +279,75 @@ const stageConfig = ref({
   draggable: true
 })
 
+// Pinch-to-zoom state
+let lastPinchDist = 0
+let lastPinchCenter: { x: number; y: number } | null = null
+let pinchStageRef: { x: number; y: number } | null = null
+
+function getDistance(t1: Touch, t2: Touch): number {
+  return Math.sqrt((t2.clientX - t1.clientX) ** 2 + (t2.clientY - t1.clientY) ** 2)
+}
+
+function getCenter(t1: Touch, t2: Touch): { x: number; y: number } {
+  return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
+}
+
+function handlePinchMove(e: TouchEvent) {
+  if (e.touches.length !== 2) return
+  e.preventDefault()
+
+  const stageNode = stage.value?.getStage()
+  if (!stageNode) return
+
+  // Stop stage drag during pinch
+  if (stageNode.isDragging()) {
+    stageNode.stopDrag()
+  }
+
+  const t1 = e.touches[0]
+  const t2 = e.touches[1]
+  const newDist = getDistance(t1, t2)
+  const newCenter = getCenter(t1, t2)
+
+  if (lastPinchDist > 0 && lastPinchCenter) {
+    const oldScale = stageConfig.value.scaleX
+    let newScale = oldScale * (newDist / lastPinchDist)
+    newScale = Math.max(0.1, Math.min(newScale, 5))
+
+    // Zoom towards pinch center
+    const containerRect = stageNode.container().getBoundingClientRect()
+    const pointerX = newCenter.x - containerRect.left
+    const pointerY = newCenter.y - containerRect.top
+
+    const mousePointTo = {
+      x: (pointerX - stageConfig.value.x) / oldScale,
+      y: (pointerY - stageConfig.value.y) / oldScale,
+    }
+
+    stageConfig.value.scaleX = newScale
+    stageConfig.value.scaleY = newScale
+
+    // Pan with center movement
+    const dx = newCenter.x - lastPinchCenter.x
+    const dy = newCenter.y - lastPinchCenter.y
+
+    stageConfig.value.x = pointerX - mousePointTo.x * newScale + dx
+    stageConfig.value.y = pointerY - mousePointTo.y * newScale + dy
+  }
+
+  lastPinchDist = newDist
+  lastPinchCenter = newCenter
+}
+
+function handlePinchEnd() {
+  lastPinchDist = 0
+  lastPinchCenter = null
+  pinchStageRef = null
+}
+
 // Resize observer to update stage dimensions
+let pinchContainer: HTMLElement | null = null
+
 onMounted(() => {
   if (container.value) {
     const observer = new ResizeObserver(() => {
@@ -289,6 +364,16 @@ onMounted(() => {
     mapStore.fetchSessionMaps()
     mapStore.setupWebSocketHandlers()
   }
+
+  // Pinch zoom: native touch events on canvas container
+  setTimeout(() => {
+    const stageNode = stage.value?.getStage()
+    if (stageNode) {
+      pinchContainer = stageNode.container()
+      pinchContainer!.addEventListener('touchmove', handlePinchMove, { passive: false })
+      pinchContainer!.addEventListener('touchend', handlePinchEnd)
+    }
+  }, 100)
 })
 
 // Grid generation

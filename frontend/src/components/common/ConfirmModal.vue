@@ -3,11 +3,11 @@
     <p class="confirm-message">{{ message }}</p>
     <template #footer>
       <div class="confirm-actions">
-        <BaseButton variant="ghost" @click="$emit('update:modelValue', false)">
-          Отмена
-        </BaseButton>
-        <BaseButton :variant="danger ? 'danger' : 'primary'" @click="$emit('confirm')">
+        <BaseButton :variant="danger ? 'danger' : 'primary'" size="lg" class="confirm-btn" @click="$emit('confirm')">
           {{ confirmText }}
+        </BaseButton>
+        <BaseButton variant="ghost" size="lg" class="cancel-btn" @click="$emit('update:modelValue', false)">
+          Отмена
         </BaseButton>
       </div>
     </template>
@@ -44,7 +44,15 @@ defineEmits<{
 
 .confirm-actions {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-2);
+}
+
+.confirm-btn,
+.cancel-btn {
+  width: 100%;
+  max-width: 300px;
+  min-height: 48px;
 }
 </style>

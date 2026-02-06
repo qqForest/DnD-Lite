@@ -91,9 +91,10 @@ def create_session(
             db.commit()
 
     # Create GM player
+    gm_name = current_user.display_name if current_user else "Game Master"
     gm_player = Player(
         session_id=session.id,
-        name="Game Master",
+        name=gm_name,
         token=gm_token,
         is_gm=True,
         user_id=current_user.id if current_user else None
