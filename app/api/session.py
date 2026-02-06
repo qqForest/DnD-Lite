@@ -225,7 +225,8 @@ def get_session_state(
         session_started=session.session_started,
         created_at=session.created_at,
         player_count=player_count,
-        player_id=current_player.id
+        player_id=current_player.id,
+        is_gm=current_player.is_gm
     )
 
 

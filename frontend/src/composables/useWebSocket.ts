@@ -30,7 +30,8 @@ export function useWebSocket() {
 
   onMounted(() => {
     if (sessionStore.token) {
-      connect()
+      // Use session store's connect which also sets up session WS handlers
+      sessionStore.connectWebSocket()
     }
 
     wsService.on('connected', async () => {
@@ -39,6 +40,7 @@ export function useWebSocket() {
       const charactersStore = (await import('@/stores/characters')).useCharactersStore()
       const diceStore = (await import('@/stores/dice')).useDiceStore()
 
+      sessionStore.setupWebSocketHandlers()
       charactersStore.setupWebSocketHandlers()
       diceStore.setupWebSocketHandlers()
     })

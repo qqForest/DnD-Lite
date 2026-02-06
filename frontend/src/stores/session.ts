@@ -11,7 +11,7 @@ export const useSessionStore = defineStore('session', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
   const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
   const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
-  const isGm = ref<boolean>(false)
+  const isGm = ref<boolean>(localStorage.getItem('isGm') === 'true')
   const players = ref<Player[]>([])
   const isConnected = ref<boolean>(false)
   const sessionState = ref<Session | null>(null)
@@ -38,6 +38,7 @@ export const useSessionStore = defineStore('session', () => {
     code.value = response.code
     token.value = response.gm_token
     isGm.value = true
+    localStorage.setItem('isGm', 'true')
 
     // Сохраняем пользовательские токены перед перезаписью сессионными
     saveUserTokens()
@@ -69,6 +70,7 @@ export const useSessionStore = defineStore('session', () => {
     code.value = response.session_code
     playerId.value = response.player_id
     isGm.value = false
+    localStorage.setItem('isGm', 'false')
     if (response.character_id) {
       characterId.value = response.character_id
     }
@@ -97,6 +99,10 @@ export const useSessionStore = defineStore('session', () => {
       if (sessionState.value.player_id) {
         playerId.value = sessionState.value.player_id
         localStorage.setItem('playerId', playerId.value.toString())
+      }
+      if (sessionState.value.is_gm !== undefined) {
+        isGm.value = sessionState.value.is_gm
+        localStorage.setItem('isGm', sessionState.value.is_gm.toString())
       }
     } catch (error) {
       console.error('Failed to fetch session state:', error)
@@ -151,12 +157,7 @@ export const useSessionStore = defineStore('session', () => {
 
   const isHandlersSetup = ref<boolean>(false)
 
-  function connectWebSocket() {
-    if (!token.value) return
-
-    wsService.disconnect()
-    wsService.connect(token.value)
-
+  function setupWebSocketHandlers() {
     if (isHandlersSetup.value) return
     isHandlersSetup.value = true
 
@@ -205,6 +206,18 @@ export const useSessionStore = defineStore('session', () => {
     })
   }
 
+  function connectWebSocket() {
+    if (!token.value) return
+
+    // Don't reconnect if already connected/connecting with the same token
+    if (!wsService.isActiveFor(token.value)) {
+      wsService.disconnect()
+      wsService.connect(token.value)
+    }
+
+    setupWebSocketHandlers()
+  }
+
   function saveUserTokens() {
     const currentAccess = localStorage.getItem('accessToken')
     const currentRefresh = localStorage.getItem('refreshToken')
@@ -229,6 +242,7 @@ export const useSessionStore = defineStore('session', () => {
     characterId.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('playerId')
+    localStorage.removeItem('isGm')
     wsService.disconnect()
 
     // Восстанавливаем пользовательские токены вместо удаления
@@ -272,6 +286,7 @@ export const useSessionStore = defineStore('session', () => {
     startSession,
     setReady,
     connectWebSocket,
+    setupWebSocketHandlers,
     clearSession
   }
 })

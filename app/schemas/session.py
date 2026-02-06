@@ -43,6 +43,7 @@ class SessionState(BaseModel):
     created_at: datetime
     player_count: int
     player_id: Optional[int] = None
+    is_gm: bool = False
 
     class Config:
         from_attributes = True
