@@ -20,6 +20,7 @@ export interface Session {
   created_at: string
   player_count: number
   player_id?: number
+  is_gm?: boolean
 }
 
 export interface SessionResponse {
