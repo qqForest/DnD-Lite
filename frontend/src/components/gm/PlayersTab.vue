@@ -17,9 +17,44 @@
           <div class="player-name">
             {{ player.name }}
             <span v-if="player.is_gm" class="gm-badge">GM</span>
+            <span v-if="!player.is_gm && player.can_move" class="move-badge">
+              <Move :size="10" />
+            </span>
           </div>
           <div v-if="charactersStore.byPlayer(player.id).length > 0" class="player-characters">
             {{ charactersStore.byPlayer(player.id).length }} персонаж(ей)
+          </div>
+        </div>
+
+        <!-- Dropdown trigger for non-GM players -->
+        <div v-if="!player.is_gm" class="player-actions">
+          <button
+            class="action-trigger"
+            @click.stop="toggleDropdown(player.id)"
+          >
+            <MoreVertical :size="16" />
+          </button>
+
+          <div
+            v-if="openDropdownId === player.id"
+            class="dropdown-menu"
+          >
+            <button class="dropdown-item" disabled>
+              <Info :size="14" />
+              <span>Информация</span>
+            </button>
+            <button class="dropdown-item" disabled>
+              <Backpack :size="14" />
+              <span>Инвентарь</span>
+            </button>
+            <button
+              :class="['dropdown-item', { active: player.can_move }]"
+              @click="handleToggleMovement(player.id)"
+            >
+              <Move :size="14" />
+              <span>Движение</span>
+              <Check v-if="player.can_move" :size="14" class="check-mark" />
+            </button>
           </div>
         </div>
       </div>
@@ -28,11 +63,53 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { MoreVertical, Info, Backpack, Move, Check } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
+import { sessionApi } from '@/services/api'
 
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
+
+const openDropdownId = ref<number | null>(null)
+
+function toggleDropdown(playerId: number) {
+  openDropdownId.value = openDropdownId.value === playerId ? null : playerId
+}
+
+function closeDropdown() {
+  openDropdownId.value = null
+}
+
+async function handleToggleMovement(playerId: number) {
+  try {
+    const result = await sessionApi.toggleMovement(playerId)
+    // Optimistic update (WS will also update, but this is faster)
+    const player = sessionStore.players.find(p => p.id === playerId)
+    if (player) {
+      player.can_move = result.can_move
+    }
+  } catch (error) {
+    console.error('Failed to toggle movement:', error)
+  }
+  openDropdownId.value = null
+}
+
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (!target.closest('.player-actions')) {
+    closeDropdown()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>
@@ -117,8 +194,86 @@ const charactersStore = useCharactersStore()
   font-weight: var(--font-weight-bold);
 }
 
+.move-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  color: white;
+}
+
 .player-characters {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+}
+
+/* Dropdown */
+.player-actions {
+  position: relative;
+}
+
+.action-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.action-trigger:hover {
+  background: var(--alpha-overlay-light);
+  color: var(--color-text-primary);
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: var(--spacing-1);
+  min-width: 180px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--alpha-overlay-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.dropdown-item:hover:not(:disabled) {
+  background: var(--alpha-overlay-light);
+  color: var(--color-text-primary);
+}
+
+.dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dropdown-item.active {
+  color: var(--color-success);
+}
+
+.check-mark {
+  margin-left: auto;
+  color: var(--color-success);
 }
 </style>

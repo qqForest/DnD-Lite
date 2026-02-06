@@ -21,6 +21,17 @@
       }"
     />
 
+    <!-- Own token indicator (movable by player) -->
+    <v-circle
+      v-if="isOwnMovable && !selected"
+      :config="{
+        radius: (30 * token.scale) + 2,
+        stroke: '#4AD94A',
+        strokeWidth: 2,
+        opacity: 0.8
+      }"
+    />
+
     <!-- Token Body -->
     <v-circle
       :config="{
@@ -55,6 +66,7 @@
 import { computed } from 'vue'
 import type { MapToken } from '@/types/models'
 import { useCharactersStore } from '@/stores/characters'
+import { useSessionStore } from '@/stores/session'
 
 const props = defineProps<{
   token: MapToken
@@ -68,6 +80,15 @@ const emit = defineEmits<{
 }>()
 
 const charactersStore = useCharactersStore()
+const sessionStore = useSessionStore()
+
+const isOwnMovable = computed(() => {
+  if (!props.token.character_id) return false
+  const currentPlayer = sessionStore.currentPlayer
+  if (!currentPlayer || currentPlayer.is_gm || !currentPlayer.can_move) return false
+  const character = charactersStore.characters.find(c => c.id === props.token.character_id)
+  return character?.player_id === sessionStore.playerId
+})
 
 const label = computed(() => {
   if (props.token.label) return props.token.label

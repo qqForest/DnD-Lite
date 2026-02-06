@@ -37,7 +37,9 @@ export const useMapStore = defineStore('map', () => {
     async function createMap(data: MapCreate) {
         try {
             const newMap = await mapsApi.create(data)
-            maps.value.push(newMap)
+            if (!maps.value.find(m => m.id === newMap.id)) {
+                maps.value.push(newMap)
+            }
             return newMap
         } catch (error) {
             console.error('Failed to create map:', error)
@@ -61,7 +63,7 @@ export const useMapStore = defineStore('map', () => {
         try {
             const token = await mapsApi.addToken(mapId, data)
             const map = maps.value.find(m => m.id === mapId)
-            if (map) {
+            if (map && !map.tokens.find(t => t.id === token.id)) {
                 map.tokens.push(token)
             }
             return token
