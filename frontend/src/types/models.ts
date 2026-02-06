@@ -113,6 +113,14 @@ export interface UserMapCreate {
   grid_scale?: number
 }
 
+export interface UserMapUpdate {
+  name?: string
+  background_url?: string | null
+  width?: number
+  height?: number
+  grid_scale?: number
+}
+
 export interface UserStats {
   total_characters: number
   total_npcs: number
@@ -290,6 +298,7 @@ export interface MapToken {
   layer: string
   label?: string | null
   color?: string | null
+  icon?: string | null
 }
 
 export interface MapTokenCreate {
@@ -302,6 +311,7 @@ export interface MapTokenCreate {
   layer?: string
   label?: string | null
   color?: string | null
+  icon?: string | null
 }
 
 export interface MapTokenUpdate {
@@ -313,6 +323,7 @@ export interface MapTokenUpdate {
   layer?: string
   label?: string | null
   color?: string | null
+  icon?: string | null
 }
 
 export interface GameMap {

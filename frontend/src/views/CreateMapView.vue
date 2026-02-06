@@ -35,8 +35,32 @@
         </div>
 
         <div class="form-group">
-          <label class="label">URL фона (опционально)</label>
-          <BaseInput v-model="form.background_url" placeholder="https://example.com/map.jpg" />
+          <label class="label">Фон карты (опционально)</label>
+          <div
+            class="upload-zone"
+            :class="{ 'drag-over': isDragOver, 'has-preview': !!previewUrl }"
+            @dragover.prevent="isDragOver = true"
+            @dragleave.prevent="isDragOver = false"
+            @drop.prevent="handleDrop"
+            @click="fileInput?.click()"
+          >
+            <template v-if="previewUrl">
+              <img :src="previewUrl" class="preview-img" alt="Превью фона" />
+              <button class="remove-bg-btn" @click.stop="removeBackground" title="Удалить фон">&times;</button>
+            </template>
+            <template v-else>
+              <span v-if="uploading" class="upload-text">Загрузка...</span>
+              <span v-else class="upload-text">Перетащите JPG/PNG или нажмите для выбора</span>
+            </template>
+          </div>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png"
+            style="display: none"
+            @change="handleFileSelect"
+          />
+          <span v-if="uploadError" class="field-error">{{ uploadError }}</span>
         </div>
       </section>
 
@@ -64,6 +88,12 @@ const router = useRouter()
 const toast = useToast()
 const submitting = ref(false)
 
+const fileInput = ref<HTMLInputElement | null>(null)
+const isDragOver = ref(false)
+const uploading = ref(false)
+const uploadError = ref('')
+const previewUrl = ref('')
+
 const form = reactive({
   name: '',
   width: 1920,
@@ -71,6 +101,52 @@ const form = reactive({
   grid_scale: 50,
   background_url: '',
 })
+
+async function uploadFile(file: File) {
+  const allowed = ['image/jpeg', 'image/png']
+  if (!allowed.includes(file.type)) {
+    uploadError.value = 'Только JPG/PNG файлы'
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    uploadError.value = 'Файл слишком большой (макс. 10МБ)'
+    return
+  }
+  uploadError.value = ''
+  uploading.value = true
+  try {
+    const result = await userMapsApi.uploadBackground(file)
+    form.background_url = result.url
+    form.width = result.width
+    form.height = result.height
+    previewUrl.value = result.url
+  } catch (err: any) {
+    uploadError.value = err.response?.data?.detail || 'Ошибка загрузки'
+  } finally {
+    uploading.value = false
+  }
+}
+
+function handleFileSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files?.[0]) {
+    uploadFile(input.files[0])
+    input.value = ''
+  }
+}
+
+function handleDrop(e: DragEvent) {
+  isDragOver.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) uploadFile(file)
+}
+
+function removeBackground() {
+  form.background_url = ''
+  previewUrl.value = ''
+  form.width = 1920
+  form.height = 1080
+}
 
 const errors = computed(() => {
   const e: Record<string, string> = {}
@@ -179,6 +255,67 @@ async function handleSubmit() {
   color: var(--color-danger, #ef4444);
   margin-top: 2px;
   display: block;
+}
+
+.upload-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-6);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-zone:hover {
+  border-color: var(--color-primary);
+}
+
+.upload-zone.drag-over {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.upload-zone.has-preview {
+  padding: var(--spacing-2);
+}
+
+.upload-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.remove-bg-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.remove-bg-btn:hover {
+  background: var(--color-danger, #ef4444);
 }
 
 .form-actions {

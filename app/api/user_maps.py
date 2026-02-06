@@ -1,5 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+import io
+import os
+import uuid as uuid_mod
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session as DBSession
+from PIL import Image
 
 from app.database import get_db
 from app.models.user import User
@@ -7,7 +12,37 @@ from app.models.user_map import UserMap
 from app.schemas.user_map import UserMapCreate, UserMapUpdate, UserMapResponse
 from app.core.auth import get_current_user
 
+UPLOAD_DIR = "uploads/maps"
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+ALLOWED_TYPES = {"image/jpeg", "image/png"}
+
 router = APIRouter()
+
+
+@router.post("/upload-background")
+async def upload_map_background(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a background image for a map. Returns URL and image dimensions."""
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPG/PNG files are allowed")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+
+    img = Image.open(io.BytesIO(content))
+    img_width, img_height = img.size
+
+    ext = "jpg" if file.content_type == "image/jpeg" else "png"
+    filename = f"{uuid_mod.uuid4()}.{ext}"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    return {"url": f"/uploads/maps/{filename}", "width": img_width, "height": img_height}
 
 
 @router.get("", response_model=list[UserMapResponse])

@@ -172,10 +172,15 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         logger.info(f"WS Connection cleanup finished for {player_name}")
 
 
+# Mount uploads directory for user-uploaded files (map backgrounds, etc.)
+from fastapi.staticfiles import StaticFiles
+uploads_path = "uploads"
+os.makedirs(os.path.join(uploads_path, "maps"), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
+
 # Mount static files from frontend/dist if it exists
 static_path = "frontend/dist"
 if os.path.exists(static_path):
-    from fastapi.staticfiles import StaticFiles
     # Support assets
     if os.path.exists(os.path.join(static_path, "assets")):
         app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="static")

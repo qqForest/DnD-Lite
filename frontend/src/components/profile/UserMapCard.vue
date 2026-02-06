@@ -12,8 +12,10 @@
       <span class="grid">Сетка: {{ map.grid_scale }}px</span>
     </div>
 
-    <div class="map-preview">
-      <span class="preview-icon">&#x1F5FA;</span>
+    <div class="map-preview" @click.stop="$emit('upload-background')">
+      <img v-if="map.background_url" :src="map.background_url" class="preview-thumb" alt="Фон карты" />
+      <span v-else class="preview-icon">&#x1F5FA;</span>
+      <span class="upload-hint">{{ map.background_url ? 'Сменить фон' : 'Загрузить фон' }}</span>
     </div>
   </div>
 </template>
@@ -28,6 +30,7 @@ defineProps<{
 
 defineEmits<{
   delete: []
+  'upload-background': []
 }>()
 </script>
 
@@ -84,10 +87,39 @@ defineEmits<{
   background: var(--color-bg-primary);
   border-radius: var(--radius-sm);
   min-height: 60px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.map-preview:hover .upload-hint {
+  opacity: 1;
 }
 
 .preview-icon {
   font-size: 2rem;
   opacity: 0.4;
+}
+
+.preview-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+
+.upload-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  text-align: center;
+  padding: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 </style>

@@ -11,6 +11,7 @@ class MapTokenBase(BaseModel):
     type: str = "character"
     label: Optional[str] = None
     color: Optional[str] = "#red"
+    icon: Optional[str] = None
 
 class MapTokenCreate(MapTokenBase):
     character_id: Optional[int] = None
@@ -23,6 +24,7 @@ class MapTokenUpdate(BaseModel):
     layer: Optional[str] = None
     label: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     character_id: Optional[int] = None
 
 class MapTokenResponse(MapTokenBase):

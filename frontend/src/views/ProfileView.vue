@@ -53,6 +53,7 @@
               :map="map"
               :deletable="true"
               @delete="confirmDelete('map', map.id, map.name)"
+              @upload-background="startBgUpload(map.id)"
             />
             <AddCard label="Новая карта" @click="router.push({ name: 'create-map' })" />
           </div>
@@ -83,6 +84,14 @@
       </template>
     </div>
 
+    <input
+      ref="bgFileInput"
+      type="file"
+      accept="image/jpeg,image/png"
+      style="display: none"
+      @change="handleBgFileChange"
+    />
+
     <ConfirmModal
       v-model="showDeleteModal"
       title="Подтверждение удаления"
@@ -106,6 +115,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
+import { userMapsApi } from '@/services/api'
 import BaseButton from '@/components/common/BaseButton.vue'
 import AddCard from '@/components/profile/AddCard.vue'
 import UserCharacterCard from '@/components/profile/UserCharacterCard.vue'
@@ -123,6 +133,9 @@ const creatingSession = ref(false)
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
 const deleteTarget = ref<{ type: 'character' | 'map'; id: number | string; name: string }>({ type: 'character', id: 0, name: '' })
+
+const bgFileInput = ref<HTMLInputElement | null>(null)
+const bgUploadMapId = ref<string | null>(null)
 
 const role = computed(() => authStore.user?.role || 'player')
 const isPlayer = computed(() => role.value === 'player' || role.value === 'both')
@@ -161,6 +174,31 @@ async function executeDelete() {
   } catch (error) {
     console.error('Failed to delete:', error)
     toast.error('Не удалось удалить')
+  }
+}
+
+function startBgUpload(mapId: string) {
+  bgUploadMapId.value = mapId
+  bgFileInput.value?.click()
+}
+
+async function handleBgFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !bgUploadMapId.value) return
+
+  try {
+    const result = await userMapsApi.uploadBackground(file)
+    await userMapsApi.update(bgUploadMapId.value, {
+      background_url: result.url,
+      width: result.width,
+      height: result.height,
+    })
+    await profileStore.fetchMaps()
+    toast.success('Фон загружен')
+  } catch (err: any) {
+    toast.error(err.response?.data?.detail || 'Не удалось загрузить фон')
   }
 }
 

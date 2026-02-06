@@ -36,7 +36,8 @@ class MapToken(Base):
     # Optional metadata (colors, labels for non-character tokens)
     label = Column(String, nullable=True)
     color = Column(String, default="#red")
-    
+    icon = Column(String, nullable=True)  # ключ иконки из каталога, например "chest"
+
     # Layer: "tokens", "background", "hidden"
     layer = Column(String, default="tokens")
 
