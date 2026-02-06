@@ -29,6 +29,11 @@ MIGRATIONS = [
         "column": "sessions_played",
         "sql": "ALTER TABLE user_characters ADD COLUMN sessions_played INTEGER DEFAULT 0",
     },
+    {
+        "table": "players",
+        "column": "can_move",
+        "sql": "ALTER TABLE players ADD COLUMN can_move BOOLEAN DEFAULT 0",
+    },
 ]
 
 

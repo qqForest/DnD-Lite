@@ -10,7 +10,7 @@ from app.core.auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=list[UserMapResponse])
+@router.get("", response_model=list[UserMapResponse])
 def list_user_maps(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db)
@@ -20,7 +20,7 @@ def list_user_maps(
     ).order_by(UserMap.created_at.desc()).all()
 
 
-@router.post("/", response_model=UserMapResponse, status_code=201)
+@router.post("", response_model=UserMapResponse, status_code=201)
 def create_user_map(
     data: UserMapCreate,
     current_user: User = Depends(get_current_user),

@@ -11,7 +11,7 @@ from app.core.auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=list[UserCharacterResponse])
+@router.get("", response_model=list[UserCharacterResponse])
 def list_user_characters(
     is_npc: Optional[bool] = None,
     current_user: User = Depends(get_current_user),
@@ -23,7 +23,7 @@ def list_user_characters(
     return query.order_by(UserCharacter.created_at.desc()).all()
 
 
-@router.post("/", response_model=UserCharacterResponse, status_code=201)
+@router.post("", response_model=UserCharacterResponse, status_code=201)
 def create_user_character(
     data: UserCharacterCreate,
     current_user: User = Depends(get_current_user),

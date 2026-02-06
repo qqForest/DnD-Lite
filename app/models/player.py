@@ -14,6 +14,7 @@ class Player(Base):
     token = Column(String(36), unique=True, nullable=False)
     is_gm = Column(Boolean, default=False)
     is_ready = Column(Boolean, default=False)
+    can_move = Column(Boolean, default=False)
 
     session = relationship("Session", back_populates="players")
     user = relationship("User")

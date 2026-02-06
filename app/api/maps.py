@@ -4,6 +4,7 @@ from typing import List
 
 from app.database import get_db
 from app.models.player import Player
+from app.models.character import Character
 from app.models.map import Map, MapToken
 from app.schemas.map import (
     MapCreate, MapResponse, MapUpdate,
@@ -46,6 +47,7 @@ async def create_map(
     db.refresh(new_map)
 
     # Broadcast map_created so players know about the new map
+    # Exclude the creator to avoid race condition with their REST response
     await manager.broadcast_event(
         "map_created",
         {
@@ -60,7 +62,8 @@ async def create_map(
                 "is_active": new_map.is_active,
                 "tokens": []
             }
-        }
+        },
+        exclude_token=current_player.token
     )
 
     return new_map
@@ -131,6 +134,15 @@ async def add_token(
     if map_obj.session_id != current_player.session_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Validate character_id belongs to this session
+    if token_data.character_id is not None:
+        character = db.query(Character).join(Player).filter(
+            Character.id == token_data.character_id,
+            Player.session_id == current_player.session_id
+        ).first()
+        if not character:
+            raise HTTPException(status_code=400, detail="Character not found in this session")
+
     new_token = MapToken(
         map_id=map_id,
         character_id=token_data.character_id,
@@ -148,6 +160,7 @@ async def add_token(
     db.refresh(new_token)
 
     # Broadcast token_added with complete token data
+    # Exclude the creator to avoid race condition with their REST response
     await manager.broadcast_event(
         "token_added",
         {
@@ -165,7 +178,8 @@ async def add_token(
                 "label": new_token.label,
                 "color": new_token.color
             }
-        }
+        },
+        exclude_token=current_player.token
     )
 
     return new_token
@@ -186,6 +200,16 @@ async def update_token(
     map_obj = db.query(Map).filter(Map.id == token.map_id).first()
     if map_obj.session_id != current_player.session_id:
         raise HTTPException(status_code=403, detail="Access denied")
+
+    # Non-GM players can only move their own character's token when allowed
+    if not current_player.is_gm:
+        if token.character_id is None:
+            raise HTTPException(status_code=403, detail="Only GM can move this token")
+        character = db.query(Character).filter(Character.id == token.character_id).first()
+        if not character or character.player_id != current_player.id:
+            raise HTTPException(status_code=403, detail="You can only move your own token")
+        if not current_player.can_move:
+            raise HTTPException(status_code=403, detail="Movement not allowed by GM")
 
     # Update fields
     # Using exclude_unset=True in Pydantic would be better, but here we do manual check
