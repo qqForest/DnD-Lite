@@ -8,8 +8,11 @@ from PIL import Image
 
 from app.database import get_db
 from app.models.user import User
-from app.models.user_map import UserMap
-from app.schemas.user_map import UserMapCreate, UserMapUpdate, UserMapResponse
+from app.models.user_map import UserMap, UserMapToken
+from app.schemas.user_map import (
+    UserMapCreate, UserMapUpdate, UserMapResponse,
+    UserMapTokenCreate, UserMapTokenUpdate, UserMapTokenResponse,
+)
 from app.core.auth import get_current_user
 
 UPLOAD_DIR = "uploads/maps"
@@ -123,4 +126,65 @@ def delete_user_map(
         raise HTTPException(status_code=404, detail="Map not found")
 
     db.delete(user_map)
+    db.commit()
+
+
+# --- UserMapToken CRUD ---
+
+@router.post("/{map_id}/tokens", response_model=UserMapTokenResponse, status_code=201)
+def create_user_map_token(
+    map_id: str,
+    data: UserMapTokenCreate,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    user_map = db.query(UserMap).filter(
+        UserMap.id == map_id, UserMap.user_id == current_user.id
+    ).first()
+    if not user_map:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    token = UserMapToken(user_map_id=map_id, **data.model_dump())
+    db.add(token)
+    db.commit()
+    db.refresh(token)
+    return token
+
+
+@router.patch("/tokens/{token_id}", response_model=UserMapTokenResponse)
+def update_user_map_token(
+    token_id: str,
+    data: UserMapTokenUpdate,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    token = db.query(UserMapToken).join(UserMap).filter(
+        UserMapToken.id == token_id,
+        UserMap.user_id == current_user.id,
+    ).first()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(token, field, value)
+
+    db.commit()
+    db.refresh(token)
+    return token
+
+
+@router.delete("/tokens/{token_id}", status_code=204)
+def delete_user_map_token(
+    token_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    token = db.query(UserMapToken).join(UserMap).filter(
+        UserMapToken.id == token_id,
+        UserMap.user_id == current_user.id,
+    ).first()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+
+    db.delete(token)
     db.commit()

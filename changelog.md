@@ -1,3 +1,19 @@
+2026-02-06: Редактор карт в профиле GM + сохранение карты из сессии
+  - Backend: Модель UserMapToken (type, x, y, scale, rotation, label, color, icon, layer) + relationship в UserMap
+  - Backend: Поле source_user_map_id в Map для отслеживания связи сессионной карты с UserMap
+  - Backend: Миграция для source_user_map_id + автосоздание таблицы user_map_tokens
+  - Backend: Pydantic-схемы UserMapTokenCreate/Update/Response, обновлён UserMapResponse с tokens
+  - Backend: API token CRUD для редактора — POST /me/maps/{id}/tokens, PATCH /me/maps/tokens/{id}, DELETE /me/maps/tokens/{id}
+  - Backend: Копирование UserMapTokens при создании сессии (UserMap → Map + MapTokens)
+  - Backend: Endpoint POST /maps/{map_id}/save-to-library — GM сохраняет сессионную карту обратно в библиотеку (без токенов игроков)
+  - Frontend: Store mapEditor (loadMap, addToken, updateToken, deleteToken, activeMapForCanvas computed)
+  - Frontend: GameMap.vue — editorMode prop (displayMap, emit editor-* событий вместо mapStore, пропуск WS/fetch)
+  - Frontend: AddTokenModal — hideCharacterTab prop (скрывает вкладку персонажей в редакторе)
+  - Frontend: EditMapView — страница редактора карты (/profile/maps/:id/edit), Konva-канвас с тулбаром
+  - Frontend: Кнопка "Редактировать" (✎) на UserMapCard, навигация из ProfileView
+  - Frontend: Кнопка "Сохранить в библиотеку" (Save) в тулбаре карты во время игровой сессии (только GM)
+  - Токены игроков (character_id != null) не сохраняются в библиотеку — они сессионные
+
 2026-02-06: Редизайн управления картой + контекстное меню токенов
   - Тулбар карты: иконки lucide (Maximize2, ZoomIn, ZoomOut, Plus) вместо текстовых кнопок, стилизация под дизайн-систему
   - ПКМ на токене (только GM): контекстное меню с опциями «Удалить» и «Убить» (для монстров)

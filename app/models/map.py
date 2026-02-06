@@ -16,6 +16,7 @@ class Map(Base):
     height = Column(Integer, default=1080)
     grid_scale = Column(Integer, default=50) # pixels per grid cell
     is_active = Column(Boolean, default=False)
+    source_user_map_id = Column(String(36), nullable=True)
 
     session = relationship("Session", back_populates="maps")
     tokens = relationship("MapToken", back_populates="map", cascade="all, delete-orphan")

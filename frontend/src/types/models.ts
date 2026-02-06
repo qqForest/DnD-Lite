@@ -94,6 +94,43 @@ export interface UserCharacterUpdate {
   current_hp?: number
 }
 
+export interface UserMapToken {
+  id: string
+  user_map_id: string
+  type: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+  label?: string | null
+  color: string
+  icon?: string | null
+  layer: string
+}
+
+export interface UserMapTokenCreate {
+  type?: string
+  x: number
+  y: number
+  scale?: number
+  rotation?: number
+  label?: string | null
+  color?: string
+  icon?: string | null
+  layer?: string
+}
+
+export interface UserMapTokenUpdate {
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+  label?: string | null
+  color?: string
+  icon?: string | null
+  layer?: string
+}
+
 export interface UserMap {
   id: string
   user_id: number
@@ -103,6 +140,7 @@ export interface UserMap {
   height: number
   grid_scale: number
   created_at: string
+  tokens?: UserMapToken[]
 }
 
 export interface UserMapCreate {

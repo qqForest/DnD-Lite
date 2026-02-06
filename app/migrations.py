@@ -39,6 +39,11 @@ MIGRATIONS = [
         "column": "icon",
         "sql": "ALTER TABLE map_tokens ADD COLUMN icon VARCHAR",
     },
+    {
+        "table": "maps",
+        "column": "source_user_map_id",
+        "sql": "ALTER TABLE maps ADD COLUMN source_user_map_id VARCHAR(36)",
+    },
 ]
 
 

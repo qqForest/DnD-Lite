@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models.player import Player
 from app.models.character import Character
 from app.models.map import Map, MapToken
+from app.models.user_map import UserMap, UserMapToken
 from app.schemas.map import (
     MapCreate, MapResponse, MapUpdate,
     MapTokenCreate, MapTokenUpdate, MapTokenResponse
@@ -268,3 +269,68 @@ async def delete_token(
     )
 
     return {"message": "Token deleted"}
+
+
+@router.post("/maps/{map_id}/save-to-library")
+def save_map_to_library(
+    map_id: str,
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db),
+):
+    """Save current session map state back to user's map library. GM only."""
+    if not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Only GM can save maps")
+    if not current_player.user_id:
+        raise HTTPException(status_code=401, detail="No linked user account")
+
+    session_map = db.query(Map).filter(
+        Map.id == map_id,
+        Map.session_id == current_player.session_id,
+    ).first()
+    if not session_map:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    # Find or create UserMap
+    user_map = None
+    if session_map.source_user_map_id:
+        user_map = db.query(UserMap).filter(
+            UserMap.id == session_map.source_user_map_id,
+            UserMap.user_id == current_player.user_id,
+        ).first()
+
+    if user_map:
+        user_map.name = session_map.name
+        user_map.background_url = session_map.background_url
+        user_map.width = session_map.width
+        user_map.height = session_map.height
+        user_map.grid_scale = session_map.grid_scale
+        # Delete old tokens
+        db.query(UserMapToken).filter(UserMapToken.user_map_id == user_map.id).delete()
+    else:
+        user_map = UserMap(
+            user_id=current_player.user_id,
+            name=session_map.name,
+            background_url=session_map.background_url,
+            width=session_map.width,
+            height=session_map.height,
+            grid_scale=session_map.grid_scale,
+        )
+        db.add(user_map)
+        db.flush()
+        session_map.source_user_map_id = user_map.id
+
+    # Copy non-player tokens (monsters, props)
+    for t in session_map.tokens:
+        if t.character_id is not None:
+            continue
+        db.add(UserMapToken(
+            user_map_id=user_map.id,
+            type=t.type,
+            x=t.x, y=t.y,
+            scale=t.scale, rotation=t.rotation,
+            label=t.label, color=t.color,
+            icon=t.icon, layer=t.layer,
+        ))
+
+    db.commit()
+    return {"message": "Map saved to library", "user_map_id": user_map.id}

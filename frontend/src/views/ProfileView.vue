@@ -53,6 +53,7 @@
               :map="map"
               :deletable="true"
               @delete="confirmDelete('map', map.id, map.name)"
+              @edit="router.push({ name: 'edit-map', params: { id: map.id } })"
               @upload-background="startBgUpload(map.id)"
             />
             <AddCard label="Новая карта" @click="router.push({ name: 'create-map' })" />

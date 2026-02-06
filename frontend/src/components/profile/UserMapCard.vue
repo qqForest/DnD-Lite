@@ -2,9 +2,14 @@
   <div class="map-card">
     <div class="card-header">
       <span class="name">{{ map.name }}</span>
-      <button v-if="deletable" class="delete-btn" @click.stop="$emit('delete')" title="Удалить">
-        &times;
-      </button>
+      <div class="card-actions">
+        <button class="action-btn edit-btn" @click.stop="$emit('edit')" title="Редактировать">
+          &#x270E;
+        </button>
+        <button v-if="deletable" class="action-btn delete-btn" @click.stop="$emit('delete')" title="Удалить">
+          &times;
+        </button>
+      </div>
     </div>
 
     <div class="card-info">
@@ -30,6 +35,7 @@ defineProps<{
 
 defineEmits<{
   delete: []
+  edit: []
   'upload-background': []
 }>()
 </script>
@@ -58,14 +64,24 @@ defineEmits<{
   color: var(--color-text-primary);
 }
 
-.delete-btn {
+.card-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.action-btn {
   background: none;
   border: none;
   color: var(--color-text-secondary);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
+  transition: color 150ms ease;
+}
+
+.edit-btn:hover {
+  color: var(--color-accent-primary, #e94560);
 }
 
 .delete-btn:hover {

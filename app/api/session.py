@@ -19,7 +19,7 @@ from app.schemas.session import (
     SessionState,
     PlayerReadyRequest,
 )
-from app.models.map import Map
+from app.models.map import Map, MapToken
 from app.models.user_map import UserMap
 from app.schemas.player import PlayerResponse
 from app.core.auth import create_access_token, create_refresh_token, get_current_player, get_optional_current_user
@@ -73,8 +73,21 @@ def create_session(
                 height=user_map.height,
                 grid_scale=user_map.grid_scale,
                 is_active=True,
+                source_user_map_id=user_map.id,
             )
             db.add(session_map)
+            db.flush()
+
+            for t in user_map.tokens:
+                db.add(MapToken(
+                    map_id=session_map.id,
+                    type=t.type,
+                    x=t.x, y=t.y,
+                    scale=t.scale, rotation=t.rotation,
+                    label=t.label, color=t.color,
+                    icon=t.icon, layer=t.layer,
+                ))
+
             db.commit()
 
     # Create GM player

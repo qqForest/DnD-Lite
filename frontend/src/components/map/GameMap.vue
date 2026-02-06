@@ -1,11 +1,11 @@
 <template>
   <div class="game-map-container" ref="container">
-    <div v-if="!mapStore.activeMap && !mapStore.loading" class="no-map">
+    <div v-if="!displayMap && !mapLoading" class="no-map">
       <p>Нет активной карты</p>
-      <button v-if="isGm" @click="createTestMap" class="btn primary">Создать тестовую карту</button>
+      <button v-if="isGm && !editorMode" @click="createTestMap" class="btn primary">Создать тестовую карту</button>
     </div>
-    
-    <div v-else-if="mapStore.loading" class="loading">
+
+    <div v-else-if="mapLoading" class="loading">
       Загрузка карты...
     </div>
 
@@ -24,8 +24,8 @@
             :config="{
                 x: 0,
                 y: 0,
-                width: mapStore.activeMap!.width,
-                height: mapStore.activeMap!.height,
+                width: displayMap!.width,
+                height: displayMap!.height,
                 fill: '#2c2c2c'
             }"
         />
@@ -35,13 +35,13 @@
             :config="{
                 x: 0,
                 y: 0,
-                width: mapStore.activeMap!.width,
-                height: mapStore.activeMap!.height,
+                width: displayMap!.width,
+                height: displayMap!.height,
                 image: bgImage,
                 listening: false
             }"
         />
-        
+
         <!-- Grid -->
          <v-line
             v-for="line in gridLines"
@@ -52,7 +52,7 @@
 
       <v-layer ref="tokenLayer">
         <MapToken
-          v-for="token in mapStore.activeMap!.tokens"
+          v-for="token in displayMap!.tokens"
           :key="token.id"
           :token="token"
           :selected="selectedTokenId === token.id"
@@ -63,7 +63,7 @@
         />
       </v-layer>
     </v-stage>
-    
+
     <!-- Controls Toolbar -->
     <div class="map-toolbar">
       <div class="toolbar-group">
@@ -81,6 +81,9 @@
       <div v-if="isGm" class="toolbar-group">
         <button class="toolbar-btn toolbar-btn--accent" @click="showAddTokenModal = true" title="Добавить токен">
           <Plus :size="18" />
+        </button>
+        <button v-if="!editorMode" class="toolbar-btn" @click="saveToLibrary" title="Сохранить в библиотеку">
+          <Save :size="18" />
         </button>
       </div>
     </div>
@@ -123,6 +126,7 @@
     <!-- Add Token Modal -->
     <AddTokenModal
       v-model="showAddTokenModal"
+      :hide-character-tab="editorMode"
       @add="handleAddToken"
     />
   </div>
@@ -130,33 +134,49 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import type { MapToken as MapTokenType, MapTokenCreate } from '@/types/models'
+import type { MapToken as MapTokenType, MapTokenCreate, GameMap as GameMapType } from '@/types/models'
 import { useMapStore } from '@/stores/map'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
-import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull } from 'lucide-vue-next'
+import { mapsApi } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull, Save } from 'lucide-vue-next'
 import MapToken from './MapToken.vue'
 import AddTokenModal from './AddTokenModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const props = defineProps<{
   isReadOnly?: boolean
+  editorMode?: boolean
+  editorMap?: GameMapType | null
+}>()
+
+const emit = defineEmits<{
+  'editor-add-token': [data: MapTokenCreate]
+  'editor-update-token': [tokenId: string, data: { x: number; y: number }]
+  'editor-delete-token': [tokenId: string]
 }>()
 
 const mapStore = useMapStore()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
+const toast = useToast()
 const container = ref<HTMLElement | null>(null)
 
-const isGm = computed(() => sessionStore.isGm)
+const displayMap = computed<GameMapType | null>(() => {
+  if (props.editorMode) return props.editorMap || null
+  return mapStore.activeMap
+})
+const mapLoading = computed(() => props.editorMode ? false : mapStore.loading)
+const isGm = computed(() => props.editorMode || sessionStore.isGm)
 const selectedTokenId = ref<string | null>(null)
 const showAddTokenModal = ref(false)
 
 // Context menu state
 const ctxMenu = reactive({ visible: false, x: 0, y: 0, tokenId: '' })
 const ctxMenuToken = computed(() => {
-  if (!ctxMenu.tokenId || !mapStore.activeMap) return null
-  return mapStore.activeMap.tokens.find(t => t.id === ctxMenu.tokenId) || null
+  if (!ctxMenu.tokenId || !displayMap.value) return null
+  return displayMap.value.tokens.find(t => t.id === ctxMenu.tokenId) || null
 })
 const showConfirmModal = ref(false)
 const pendingAction = ref<'delete' | 'kill' | null>(null)
@@ -197,7 +217,11 @@ async function executeConfirmedAction() {
   showConfirmModal.value = false
   if (!ctxMenu.tokenId) return
   try {
-    await mapStore.deleteToken(ctxMenu.tokenId)
+    if (props.editorMode) {
+      emit('editor-delete-token', ctxMenu.tokenId)
+    } else {
+      await mapStore.deleteToken(ctxMenu.tokenId)
+    }
   } catch {
     console.error('Failed to delete token')
   }
@@ -225,7 +249,7 @@ onUnmounted(() => {
 
 // Background image loading
 const bgImage = ref<HTMLImageElement | null>(null)
-const bgUrl = computed(() => mapStore.activeMap?.background_url || null)
+const bgUrl = computed(() => displayMap.value?.background_url || null)
 
 watch(bgUrl, (url) => {
   if (url) {
@@ -259,19 +283,21 @@ onMounted(() => {
     })
     observer.observe(container.value)
   }
-  
-  // Initial load
-  mapStore.fetchSessionMaps()
-  mapStore.setupWebSocketHandlers()
+
+  // Initial load (skip in editor mode)
+  if (!props.editorMode) {
+    mapStore.fetchSessionMaps()
+    mapStore.setupWebSocketHandlers()
+  }
 })
 
 // Grid generation
 const gridLines = computed(() => {
-  if (!mapStore.activeMap) return []
+  if (!displayMap.value) return []
   const lines = []
-  const { width, height, grid_scale } = mapStore.activeMap
+  const { width, height, grid_scale } = displayMap.value
   const color = 'rgba(255, 255, 255, 0.1)'
-  
+
   // Vertical
   for (let i = 0; i <= width / grid_scale; i++) {
     lines.push({
@@ -283,7 +309,7 @@ const gridLines = computed(() => {
       }
     })
   }
-  
+
   // Horizontal
   for (let i = 0; i <= height / grid_scale; i++) {
     lines.push({
@@ -295,14 +321,14 @@ const gridLines = computed(() => {
       }
     })
   }
-  
+
   return lines
 })
 
 // Stage Interaction
 function handleWheel(e: any) {
   e.evt.preventDefault()
-  
+
   const scaleBy = 1.1
   const stage = e.target.getStage()
   const oldScale = stage.scaleX()
@@ -314,7 +340,7 @@ function handleWheel(e: any) {
   }
 
   let newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
-  
+
   // Limit scale
   newScale = Math.max(0.1, Math.min(newScale, 5))
 
@@ -325,7 +351,7 @@ function handleWheel(e: any) {
     x: pointer.x - mousePointTo.x * newScale,
     y: pointer.y - mousePointTo.y * newScale,
   }
-  
+
   stageConfig.value.x = newPos.x
   stageConfig.value.y = newPos.y
 }
@@ -345,6 +371,7 @@ function handleDragEnd() {
 
 // Per-token read-only logic
 function isTokenReadOnly(token: MapTokenType): boolean {
+  if (props.editorMode) return false  // Editor — all tokens are draggable
   if (!props.isReadOnly) return false  // GM — all tokens are draggable
 
   // Player: allow only own character's token when can_move is enabled
@@ -362,6 +389,10 @@ function isTokenReadOnly(token: MapTokenType): boolean {
 
 // Token Interaction
 async function handleTokenUpdate(id: string, x: number, y: number) {
+  if (props.editorMode) {
+    emit('editor-update-token', id, { x, y })
+    return
+  }
   try {
     await mapStore.updateToken(id, { x, y })
   } catch (error: any) {
@@ -378,16 +409,16 @@ function handleTokenSelect(id: string) {
 
 // Controls
 function fitToScreen() {
-    if (!mapStore.activeMap || !container.value) return
+    if (!displayMap.value || !container.value) return
     const padding = 20
     const w = container.value.clientWidth - padding * 2
     const h = container.value.clientHeight - padding * 2
-    
-    const mapW = mapStore.activeMap.width
-    const mapH = mapStore.activeMap.height
-    
+
+    const mapW = displayMap.value.width
+    const mapH = displayMap.value.height
+
     const scale = Math.min(w / mapW, h / mapH)
-    
+
     stageConfig.value.scaleX = scale
     stageConfig.value.scaleY = scale
     stageConfig.value.x = (container.value.clientWidth - mapW * scale) / 2
@@ -419,7 +450,7 @@ async function createTestMap() {
 
 // Add token from modal
 async function handleAddToken(data: MapTokenCreate) {
-    if (!mapStore.activeMap) return
+    if (!displayMap.value) return
 
     // Calculate viewport center for initial placement
     const scale = stageConfig.value.scaleX
@@ -430,12 +461,29 @@ async function handleAddToken(data: MapTokenCreate) {
     const centerX = (viewW / 2 - stageX) / scale
     const centerY = (viewH / 2 - stageY) / scale
 
-    await mapStore.addToken(mapStore.activeMap.id, {
+    const tokenData = {
         ...data,
         x: centerX,
         y: centerY,
         layer: 'tokens',
-    })
+    }
+
+    if (props.editorMode) {
+        emit('editor-add-token', tokenData)
+    } else {
+        await mapStore.addToken(displayMap.value.id, tokenData)
+    }
+}
+
+// Save map to library (session mode only)
+async function saveToLibrary() {
+    if (!displayMap.value || props.editorMode) return
+    try {
+        await mapsApi.saveToLibrary(displayMap.value.id)
+        toast.success('Карта сохранена в библиотеку')
+    } catch (error: any) {
+        toast.error(error.response?.data?.detail || 'Не удалось сохранить')
+    }
 }
 
 </script>

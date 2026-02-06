@@ -52,6 +52,12 @@ const router = createRouter({
       meta: { requiresUser: true }
     },
     {
+      path: '/profile/maps/:id/edit',
+      name: 'edit-map',
+      component: () => import('@/views/EditMapView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
       path: '/gm/lobby',
       name: 'gm-lobby',
       component: () => import('@/views/GMLobbyView.vue'),

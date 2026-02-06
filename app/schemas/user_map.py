@@ -1,6 +1,47 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+
+
+class UserMapTokenCreate(BaseModel):
+    type: str = "monster"
+    x: float = 0.0
+    y: float = 0.0
+    scale: float = 1.0
+    rotation: float = 0.0
+    label: Optional[str] = None
+    color: str = "#D94A4A"
+    icon: Optional[str] = None
+    layer: str = "tokens"
+
+
+class UserMapTokenUpdate(BaseModel):
+    type: Optional[str] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    scale: Optional[float] = None
+    rotation: Optional[float] = None
+    label: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    layer: Optional[str] = None
+
+
+class UserMapTokenResponse(BaseModel):
+    id: str
+    user_map_id: str
+    type: str
+    x: float
+    y: float
+    scale: float
+    rotation: float
+    label: Optional[str] = None
+    color: str
+    icon: Optional[str] = None
+    layer: str
+
+    class Config:
+        from_attributes = True
 
 
 class UserMapCreate(BaseModel):
@@ -28,6 +69,7 @@ class UserMapResponse(BaseModel):
     height: int
     grid_scale: int
     created_at: datetime
+    tokens: List[UserMapTokenResponse] = []
 
     class Config:
         from_attributes = True

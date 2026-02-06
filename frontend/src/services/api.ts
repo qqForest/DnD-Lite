@@ -30,6 +30,9 @@ import type {
   UserMap,
   UserMapCreate,
   UserMapUpdate,
+  UserMapToken,
+  UserMapTokenCreate,
+  UserMapTokenUpdate,
   UserStats
 } from '@/types/models'
 
@@ -337,6 +340,11 @@ export const mapsApi = {
 
   deleteToken: async (tokenId: string): Promise<void> => {
     await api.delete(`/tokens/${tokenId}`)
+  },
+
+  saveToLibrary: async (mapId: string): Promise<{ message: string; user_map_id: string }> => {
+    const response = await api.post<{ message: string; user_map_id: string }>(`/maps/${mapId}/save-to-library`)
+    return response.data
   }
 }
 
@@ -426,6 +434,20 @@ export const userMapsApi = {
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
     return response.data
+  },
+
+  addToken: async (mapId: string, data: UserMapTokenCreate): Promise<UserMapToken> => {
+    const response = await api.post<UserMapToken>(`/me/maps/${mapId}/tokens`, data)
+    return response.data
+  },
+
+  updateToken: async (tokenId: string, data: UserMapTokenUpdate): Promise<UserMapToken> => {
+    const response = await api.patch<UserMapToken>(`/me/maps/tokens/${tokenId}`, data)
+    return response.data
+  },
+
+  deleteToken: async (tokenId: string): Promise<void> => {
+    await api.delete(`/me/maps/tokens/${tokenId}`)
   }
 }
 

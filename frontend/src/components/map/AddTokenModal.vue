@@ -7,7 +7,7 @@
   >
     <div class="add-token-modal">
       <!-- Mode Tabs -->
-      <div class="mode-tabs">
+      <div v-if="!hideCharacterTab" class="mode-tabs">
         <button
           :class="['mode-tab', { active: mode === 'character' }]"
           @click="mode = 'character'"
@@ -25,7 +25,7 @@
       </div>
 
       <!-- Character Mode -->
-      <div v-if="mode === 'character'" class="character-list">
+      <div v-if="mode === 'character' && !hideCharacterTab" class="character-list">
         <div v-if="sessionCharacters.length === 0" class="empty-state">
           Нет персонажей в сессии
         </div>
@@ -180,8 +180,9 @@ const COLOR_PALETTE = [
   '#8B4513', '#808080',
 ]
 
-defineProps<{
+const props = defineProps<{
   modelValue: boolean
+  hideCharacterTab?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -193,7 +194,7 @@ const charactersStore = useCharactersStore()
 const sessionStore = useSessionStore()
 const mapStore = useMapStore()
 
-const mode = ref<'character' | 'custom'>('character')
+const mode = ref<'character' | 'custom'>(props.hideCharacterTab ? 'custom' : 'character')
 const customSubMode = ref<'templates' | 'manual'>('templates')
 const selectedCharacterId = ref<number | null>(null)
 const selectedTemplateKey = ref<string | null>(null)
@@ -304,7 +305,7 @@ function handleAdd() {
 }
 
 function reset() {
-  mode.value = 'character'
+  mode.value = props.hideCharacterTab ? 'custom' : 'character'
   customSubMode.value = 'templates'
   selectedCharacterId.value = null
   selectedTemplateKey.value = null
