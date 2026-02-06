@@ -4,7 +4,7 @@ __pycache__
 *.pyc
 *.pyo
 *.pyd
-.db
+*.db
 frontend/node_modules
 frontend/dist
 .git

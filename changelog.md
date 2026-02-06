@@ -23,6 +23,15 @@
   - Frontend: PlayersTab — dropdown меню с кнопками Информация, Инвентарь, Движение для каждого игрока
   - Frontend: Зелёная обводка токена игрока при включённом разрешении на движение
   - Frontend: WebSocket handler player_movement_changed для синхронизации разрешений в реальном времени
+2026-02-05: Исправлены критические баги WebSocket: race conditions (asyncio.Lock),
+  утечки мёртвых соединений, heartbeat/ping, DB session per message, reconnect,
+  таймаут receive, лимит размера сообщений, обработка ошибок в handlers,
+  logging вместо print.
+
+2026-02-04: Исправлена ошибка 405 на VPS при создании персонажей/NPC/карт
+  - Причина: catch-all GET маршрут для SPA (`/{full_path:path}`) перехватывал POST/PUT/DELETE запросы к API при наличии собранного фронтенда
+  - Заменён catch-all route на exception handler для StarletteHTTPException
+  - API роуты больше не конфликтуют с раздачей SPA статики
 
 2026-02-04: Выбор карты из профиля при создании сессии
   - Backend: SessionCreate принимает user_map_id — опциональный ID карты из профиля

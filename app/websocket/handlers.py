@@ -1,9 +1,13 @@
+import logging
 from typing import Optional
+
 from sqlalchemy.orm import Session as DBSession
 
 from app.websocket.manager import manager
 from app.services.dice import DiceService
 from app.models.player import Player
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_message(
@@ -15,6 +19,10 @@ async def handle_message(
     """Route incoming WebSocket messages to appropriate handlers."""
     msg_type = message.get("type")
 
+    # Ignore pong responses from client (heartbeat reply)
+    if msg_type == "pong":
+        return
+
     handlers = {
         "roll_dice": handle_roll_dice,
         "chat": handle_chat,
@@ -22,7 +30,16 @@ async def handle_message(
 
     handler = handlers.get(msg_type)
     if handler:
-        await handler(db, token, player, message.get("payload", {}))
+        try:
+            await handler(db, token, player, message.get("payload", {}))
+        except Exception as e:
+            logger.error(f"Error handling '{msg_type}' from player {player.name}: {e}")
+            await manager.send_personal(token, {
+                "type": "error",
+                "payload": {"message": f"Error processing {msg_type}"}
+            })
+    elif msg_type:
+        logger.warning(f"Unknown message type '{msg_type}' from player {player.name}")
 
 
 async def handle_roll_dice(

@@ -4,13 +4,28 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.orm import Session as DBSession
 import json
+import logging
 import os
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy.orm import Session as DBSession
 
 from app.database import engine, Base, get_db
 from app.api import api_router
 from app.websocket.manager import manager
 from app.websocket.handlers import handle_message
 from app.models.player import Player
+
+logger = logging.getLogger(__name__)
+
+# WebSocket constants
+MAX_MESSAGE_SIZE = 10240  # 10 KB
+MAX_CONSECUTIVE_ERRORS = 5
+RECEIVE_TIMEOUT = 300  # 5 minutes
+HEARTBEAT_INTERVAL = 30  # seconds
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -38,79 +53,127 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+async def _heartbeat(websocket: WebSocket, token: str):
+    """Send periodic ping messages to keep the connection alive."""
+    try:
+        while True:
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            await websocket.send_json({"type": "ping"})
+    except Exception:
+        logger.debug(f"Heartbeat stopped for token {token[:8]}...")
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     """WebSocket endpoint for real-time communication."""
-    print(f"WS Connection attempt. Token from Query: {token}")
-    print(f"WS Headers: {dict(websocket.headers)}")
-    
+    logger.info(f"WS Connection attempt with token: {token[:8] if token else 'None'}...")
+
     if not token:
-        print("WS Connection rejected: No token provided in Query")
-        # If no token, we can't search for player. 
-        # But we must close or reject. Let's send 4003 (Forbidden)
+        logger.warning("WS Connection rejected: No token provided")
         await websocket.close(code=4003, reason="No token provided")
         return
 
-    # Get database session
+    # Validate token with a separate DB session (closed immediately after)
     db = next(get_db())
-
-    player = None
     try:
-        # Validate token and get player
-        print(f"WS Searching for player with token: {token}")
         player = db.query(Player).filter(Player.token == token).first()
-        
         if not player:
-            print(f"WS Connection rejected: Player not found for token {token}")
+            logger.warning(f"WS Connection rejected: Player not found for token {token[:8]}...")
             await websocket.close(code=4001, reason="Invalid token")
             return
+        # Cache player info in local variables
+        player_id = player.id
+        player_name = player.name
+        is_gm = player.is_gm
+    finally:
+        db.close()
 
-        print(f"WS Found player: {player.name} (id: {player.id}). Accepting connection...")
-        # Connect player
-        await manager.connect(websocket, token, player.id)
-        print(f"WS Successfully connected and accepted: {player.name}")
+    # Connect player
+    try:
+        await manager.connect(websocket, token, player_id)
+    except Exception as e:
+        logger.error(f"WS Failed to connect player {player_name}: {e}")
+        return
 
-        # Broadcast player joined
-        await manager.broadcast_event(
-            "player_joined",
-            {"player_id": player.id, "player_name": player.name, "is_gm": player.is_gm},
-            exclude_token=token
-        )
+    logger.info(f"WS Successfully connected: {player_name}")
 
-        # Handle messages
+    # Start heartbeat task
+    heartbeat_task = asyncio.create_task(_heartbeat(websocket, token))
+
+    # Broadcast player joined
+    await manager.broadcast_event(
+        "player_joined",
+        {"player_id": player_id, "player_name": player_name, "is_gm": is_gm},
+        exclude_token=token
+    )
+
+    consecutive_errors = 0
+
+    try:
         while True:
+            # Receive with timeout
             try:
-                data = await websocket.receive_text()
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=RECEIVE_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.info(f"WS Timeout for {player_name}, closing connection")
+                break
+
+            # Check message size
+            if len(data) > MAX_MESSAGE_SIZE:
+                await manager.send_personal(token, {
+                    "type": "error",
+                    "payload": {"message": "Message too large"}
+                })
+                continue
+
+            # Parse JSON
+            try:
                 message = json.loads(data)
-                # print(f"WS Message from {player.name}: {message}")
-                await handle_message(db, token, player, message)
-            except WebSocketDisconnect:
-                raise
             except json.JSONDecodeError:
                 await manager.send_personal(token, {
                     "type": "error",
                     "payload": {"message": "Invalid JSON"}
                 })
+                continue
+
+            # Handle message with a fresh DB session
+            db = next(get_db())
+            try:
+                # Fetch fresh player from DB for each message
+                current_player = db.query(Player).filter(Player.token == token).first()
+                if not current_player:
+                    logger.warning(f"WS Player no longer exists: {player_name}")
+                    break
+                await handle_message(db, token, current_player, message)
+                consecutive_errors = 0
             except Exception as e:
-                print(f"WS Processing Error from {player.name}: {str(e)}")
+                consecutive_errors += 1
+                logger.error(f"WS Processing error from {player_name}: {e}")
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                    logger.error(f"WS Too many consecutive errors for {player_name}, closing")
+                    break
+            finally:
+                db.close()
 
     except WebSocketDisconnect:
-        if player:
-            print(f"WS Disconnected: {player.name}")
-            manager.disconnect(token)
-            await manager.broadcast_event(
-                "player_left",
-                {"player_id": player.id}
-            )
-        else:
-            print("WS Disconnected during handshake or unknown player")
+        logger.info(f"WS Disconnected: {player_name}")
     except Exception as e:
-        print(f"WS Top-level Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"WS Unexpected error for {player_name}: {e}")
     finally:
-        db.close()
-        print(f"WS Connection cleanup finished for token: {token[:8]}...")
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+        await manager.disconnect(token)
+        await manager.broadcast_event(
+            "player_left",
+            {"player_id": player_id}
+        )
+        logger.info(f"WS Connection cleanup finished for {player_name}")
 
 
 # Mount static files from frontend/dist if it exists
