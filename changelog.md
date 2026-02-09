@@ -1,3 +1,14 @@
+2026-02-10: Добавлена характеристика Armor Class (AC) для персонажей
+  - Backend: поле armor_class (default=10) в моделях Character и UserCharacter + миграции SQLite
+  - Backend: Pydantic-схемы Character/UserCharacter Create/Update/Response с armor_class
+  - Backend: recommended_ac в ClassTemplateResponse, AC прописан для всех 12 шаблонов классов D&D 5e
+  - Backend: AC копируется при join сессии (UserCharacter → Character) и при создании из шаблона
+  - Backend: AC включён в persistence export/import
+  - Frontend: armor_class во всех TypeScript интерфейсах (Character, UserCharacter, Create/Update)
+  - Frontend: SVG-щиток AC на лицевой стороне CharacterFlipCard (compact-режим поддержан)
+  - Frontend: AC передаётся при создании персонажа из шаблона (recommended_ac)
+  - Тесты: unit (значения AC шаблонов), integration (CRUD AC, recommended_ac в API)
+
 2026-02-09: Редизайн создания/редактирования персонажей — 3-шаговый визард
   - CreateCharacterView: переписан как пошаговый визард (класс → аватар → предпросмотр)
   - Шаг 1: карусель классов (TemplateCarousel + ClassCard) с свайпом, выбор класса и ввод имени

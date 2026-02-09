@@ -16,6 +16,7 @@ class UserCharacterCreate(BaseModel):
     charisma: int = Field(default=10, ge=1, le=30)
     max_hp: int = Field(default=10, ge=1)
     current_hp: int = Field(default=10, ge=0)
+    armor_class: int = Field(default=10, ge=1, le=30)
     appearance: Optional[str] = None
 
 
@@ -32,6 +33,7 @@ class UserCharacterUpdate(BaseModel):
     charisma: Optional[int] = Field(default=None, ge=1, le=30)
     max_hp: Optional[int] = Field(default=None, ge=1)
     current_hp: Optional[int] = Field(default=None, ge=0)
+    armor_class: Optional[int] = Field(default=None, ge=1, le=30)
     appearance: Optional[str] = None
 
 
@@ -50,6 +52,7 @@ class UserCharacterResponse(BaseModel):
     charisma: int
     max_hp: int
     current_hp: int
+    armor_class: int = 10
     appearance: Optional[str] = None
     avatar_url: Optional[str] = None
     sessions_played: int = 0

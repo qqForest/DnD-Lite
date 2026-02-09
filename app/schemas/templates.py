@@ -36,6 +36,7 @@ class ClassTemplateResponse(BaseModel):
     wisdom: int
     charisma: int
     recommended_hp: int = Field(description="Рекомендуемое HP для 1 уровня")
+    recommended_ac: int = Field(description="Рекомендуемый AC для 1 уровня")
     starting_items: List[StartingItemSchema]
     starting_spells: List[StartingSpellSchema]
 

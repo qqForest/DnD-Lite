@@ -63,6 +63,33 @@ class TestCalculateHP:
         assert hp == 32
 
 
+class TestArmorClass:
+    def test_all_templates_have_ac(self):
+        for t in list_templates():
+            assert hasattr(t, 'armor_class')
+            assert isinstance(t.armor_class, int)
+            assert 10 <= t.armor_class <= 20, f"{t.id} AC={t.armor_class} вне диапазона"
+
+    def test_expected_ac_values(self):
+        expected = {
+            "fighter": 16,
+            "paladin": 16,
+            "cleric": 16,
+            "ranger": 16,
+            "monk": 16,
+            "barbarian": 15,
+            "rogue": 14,
+            "bard": 13,
+            "warlock": 13,
+            "wizard": 12,
+            "druid": 12,
+            "sorcerer": 12,
+        }
+        for template_id, ac in expected.items():
+            t = get_template(template_id)
+            assert t.armor_class == ac, f"{template_id}: expected AC={ac}, got {t.armor_class}"
+
+
 class TestStartingEquipment:
     def test_caster_has_spells(self):
         wizard = get_template("wizard")

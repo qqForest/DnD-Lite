@@ -47,6 +47,7 @@ def template_to_response(template: ClassTemplate) -> ClassTemplateResponse:
         wisdom=template.wisdom,
         charisma=template.charisma,
         recommended_hp=template.calculate_hp(1),
+        recommended_ac=template.armor_class,
         starting_items=[
             StartingItemSchema(
                 name=item.name,
@@ -127,6 +128,7 @@ async def create_character_from_template(
         charisma=template.charisma,
         max_hp=hp,
         current_hp=hp,
+        armor_class=template.armor_class,
     )
     db.add(character)
     db.flush()

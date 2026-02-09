@@ -15,6 +15,19 @@
 
         <span v-if="character.is_npc" class="npc-badge">NPC</span>
 
+        <!-- AC Shield -->
+        <div v-if="character.armor_class" class="ac-shield">
+          <svg viewBox="0 0 40 46" class="ac-shield-svg">
+            <path
+              d="M20 2 L38 10 L38 24 C38 34 28 42 20 44 C12 42 2 34 2 24 L2 10 Z"
+              fill="var(--color-bg-secondary, #1a1a2e)"
+              stroke="var(--color-accent-primary, #c0a46c)"
+              stroke-width="2"
+            />
+          </svg>
+          <span class="ac-shield-value">{{ character.armor_class }}</span>
+        </div>
+
         <div class="card-bottom-gradient">
           <div class="card-name">{{ character.name }}</div>
           <div class="card-subtitle">
@@ -168,6 +181,35 @@ const stats = [
   justify-content: center;
   color: var(--color-text-muted, var(--color-text-secondary));
   opacity: 0.5;
+}
+
+.ac-shield {
+  position: absolute;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  z-index: 3;
+  width: 60px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ac-shield-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+}
+
+.ac-shield-value {
+  position: relative;
+  font-family: var(--font-family-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-accent-primary, #c0a46c);
+  line-height: 1;
+  margin-top: -3px;
 }
 
 .npc-badge {
@@ -393,5 +435,16 @@ const stats = [
 .flip-card.compact .hp-icon {
   width: 12px;
   height: 12px;
+}
+
+.flip-card.compact .ac-shield {
+  width: 36px;
+  height: 42px;
+  top: 2px;
+  left: 2px;
+}
+
+.flip-card.compact .ac-shield-value {
+  font-size: 14px;
 }
 </style>

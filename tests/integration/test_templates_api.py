@@ -27,6 +27,12 @@ class TestGetTemplate:
         assert "starting_items" in data
         assert "recommended_hp" in data
 
+    async def test_recommended_ac(self, client):
+        resp = await client.get("/api/templates/fighter")
+        data = resp.json()
+        assert "recommended_ac" in data
+        assert data["recommended_ac"] == 16
+
     async def test_nonexistent(self, client):
         resp = await client.get("/api/templates/nonexistent")
         assert resp.status_code == 404

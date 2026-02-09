@@ -11,14 +11,13 @@
         :style="trackStyle"
       >
         <div
-          v-for="tmpl in templates"
+          v-for="(tmpl, i) in templates"
           :key="tmpl.id"
           class="carousel-slide"
         >
           <ClassCard
             :template="tmpl"
-            :is-selected="tmpl.id === selectedId"
-            @select="$emit('select', tmpl.id)"
+            :details="i === currentIndex ? currentDetails : undefined"
           />
         </div>
       </div>
@@ -45,15 +44,11 @@
 import { ref, computed, watch } from 'vue'
 import { useSwipe } from '@/composables/useSwipe'
 import ClassCard from './ClassCard.vue'
-import type { ClassTemplateListItem } from '@/types/models'
+import type { ClassTemplateListItem, ClassTemplateResponse } from '@/types/models'
 
 const props = defineProps<{
   templates: ClassTemplateListItem[]
-  selectedId: string | null
-}>()
-
-const emit = defineEmits<{
-  select: [templateId: string]
+  currentDetails?: ClassTemplateResponse
 }>()
 
 const currentIndex = ref(0)
@@ -88,13 +83,6 @@ const trackStyle = computed(() => {
 function goTo(index: number) {
   currentIndex.value = index
 }
-
-watch(() => props.selectedId, (id) => {
-  if (id) {
-    const idx = props.templates.findIndex(t => t.id === id)
-    if (idx >= 0) currentIndex.value = idx
-  }
-})
 
 watch(() => props.templates.length, (len) => {
   if (currentIndex.value >= len) {

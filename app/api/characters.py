@@ -51,6 +51,7 @@ async def create_character(
         charisma=data.charisma,
         max_hp=data.max_hp,
         current_hp=data.current_hp if data.current_hp is not None else data.max_hp,
+        armor_class=data.armor_class,
     )
     db.add(character)
     db.commit()

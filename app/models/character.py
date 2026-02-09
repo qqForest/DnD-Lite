@@ -25,6 +25,9 @@ class Character(Base):
     max_hp = Column(Integer, default=10)
     current_hp = Column(Integer, default=10)
 
+    # Armor Class
+    armor_class = Column(Integer, default=10)
+
     # Appearance & Avatar
     appearance = Column(Text, nullable=True)
     avatar_url = Column(String, nullable=True)

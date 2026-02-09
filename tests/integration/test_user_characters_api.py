@@ -26,6 +26,28 @@ class TestCreateUserCharacter:
         assert data["name"] == "My Hero"
         assert data["is_npc"] is False
 
+    async def test_create_with_ac(self, client):
+        h, _ = await _register_and_get_headers(client, "ac_user")
+        resp = await client.post("/api/me/characters", json={
+            "name": "Armored",
+            "class_name": "Fighter",
+            "max_hp": 12,
+            "current_hp": 12,
+            "armor_class": 16,
+        }, headers=h)
+        assert resp.status_code == 201
+        assert resp.json()["armor_class"] == 16
+
+    async def test_create_default_ac(self, client):
+        h, _ = await _register_and_get_headers(client, "defac_user")
+        resp = await client.post("/api/me/characters", json={
+            "name": "NoArmor",
+            "max_hp": 8,
+            "current_hp": 8,
+        }, headers=h)
+        assert resp.status_code == 201
+        assert resp.json()["armor_class"] == 10
+
     async def test_create_npc(self, client):
         h, _ = await _register_and_get_headers(client, "npc_user")
         resp = await client.post("/api/me/characters", json={

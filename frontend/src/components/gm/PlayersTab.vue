@@ -33,6 +33,17 @@
           </div>
           <div v-if="charactersStore.byPlayer(player.id).length > 0" class="player-characters">
             {{ charactersStore.byPlayer(player.id)[0].name }}
+            <span v-if="(charactersStore.byPlayer(player.id)[0] as any).armor_class" class="ac-mini">
+              <svg viewBox="0 0 40 46" class="ac-mini-svg">
+                <path
+                  d="M20 2 L38 10 L38 24 C38 34 28 42 20 44 C12 42 2 34 2 24 L2 10 Z"
+                  fill="var(--color-bg-primary, #12121a)"
+                  stroke="var(--color-accent-primary, #c0a46c)"
+                  stroke-width="3"
+                />
+              </svg>
+              <span class="ac-mini-value">{{ (charactersStore.byPlayer(player.id)[0] as any).armor_class }}</span>
+            </span>
           </div>
         </div>
 
@@ -252,6 +263,35 @@ onUnmounted(() => {
 .player-characters {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.ac-mini {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.ac-mini-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.ac-mini-value {
+  position: relative;
+  font-family: var(--font-family-display);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-accent-primary, #c0a46c);
+  line-height: 1;
+  margin-top: -1px;
 }
 
 /* Dropdown */

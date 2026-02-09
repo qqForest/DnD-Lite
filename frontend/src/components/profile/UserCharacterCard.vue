@@ -33,9 +33,22 @@
       </div>
     </div>
 
-    <div class="hp-row">
-      <span class="hp-label">HP</span>
-      <span class="hp-value">{{ character.current_hp }} / {{ character.max_hp }}</span>
+    <div class="bottom-row">
+      <div class="hp-row">
+        <span class="hp-label">HP</span>
+        <span class="hp-value">{{ character.current_hp }} / {{ character.max_hp }}</span>
+      </div>
+      <div v-if="character.armor_class" class="ac-badge">
+        <svg viewBox="0 0 40 46" class="ac-badge-svg">
+          <path
+            d="M20 2 L38 10 L38 24 C38 34 28 42 20 44 C12 42 2 34 2 24 L2 10 Z"
+            fill="var(--color-bg-primary, #12121a)"
+            stroke="var(--color-accent-primary, #c0a46c)"
+            stroke-width="2.5"
+          />
+        </svg>
+        <span class="ac-badge-value">{{ character.armor_class }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -187,7 +200,14 @@ const stats = [
   color: var(--color-text-primary);
 }
 
+.bottom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
 .hp-row {
+  flex: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -205,5 +225,32 @@ const stats = [
 .hp-value {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+}
+
+.ac-badge {
+  position: relative;
+  width: 36px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ac-badge-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.ac-badge-value {
+  position: relative;
+  font-family: var(--font-family-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent-primary, #c0a46c);
+  line-height: 1;
+  margin-top: -2px;
 }
 </style>

@@ -48,6 +48,8 @@ class ClassTemplate:
     intelligence: int
     wisdom: int
     charisma: int
+    # Armor Class (рассчитанный для 1 уровня)
+    armor_class: int = 10
     # Стартовое снаряжение и заклинания
     starting_items: List[StartingItem] = field(default_factory=list)
     starting_spells: List[StartingSpell] = field(default_factory=list)
@@ -81,6 +83,7 @@ FIGHTER = ClassTemplate(
     intelligence=10,
     wisdom=12,
     charisma=8,
+    armor_class=16,
     starting_items=[
         StartingItem(
             name="Longsword",
@@ -117,6 +120,7 @@ WIZARD = ClassTemplate(
     intelligence=16,
     wisdom=12,
     charisma=10,
+    armor_class=12,
     starting_items=[
         StartingItem(
             name="Quarterstaff",
@@ -159,6 +163,7 @@ ROGUE = ClassTemplate(
     intelligence=14,
     wisdom=12,
     charisma=10,
+    armor_class=14,
     starting_items=[
         StartingItem(
             name="Shortsword",
@@ -198,6 +203,7 @@ CLERIC = ClassTemplate(
     intelligence=10,
     wisdom=16,
     charisma=12,
+    armor_class=16,
     starting_items=[
         StartingItem(
             name="Mace",
@@ -248,6 +254,7 @@ BARBARIAN = ClassTemplate(
     intelligence=8,
     wisdom=10,
     charisma=10,
+    armor_class=15,
     starting_items=[
         StartingItem(
             name="Greataxe",
@@ -281,6 +288,7 @@ RANGER = ClassTemplate(
     intelligence=10,
     wisdom=14,
     charisma=8,
+    armor_class=16,
     starting_items=[
         StartingItem(
             name="Longbow",
@@ -316,6 +324,7 @@ PALADIN = ClassTemplate(
     intelligence=8,
     wisdom=10,
     charisma=14,
+    armor_class=16,
     starting_items=[
         StartingItem(
             name="Longsword",
@@ -362,6 +371,7 @@ BARD = ClassTemplate(
     intelligence=12,
     wisdom=10,
     charisma=16,
+    armor_class=13,
     starting_items=[
         StartingItem(
             name="Rapier",
@@ -406,6 +416,7 @@ DRUID = ClassTemplate(
     intelligence=12,
     wisdom=16,
     charisma=10,
+    armor_class=12,
     starting_items=[
         StartingItem(
             name="Quarterstaff",
@@ -450,6 +461,7 @@ MONK = ClassTemplate(
     intelligence=10,
     wisdom=16,
     charisma=8,
+    armor_class=16,
     starting_items=[
         StartingItem(
             name="Shortsword",
@@ -479,6 +491,7 @@ SORCERER = ClassTemplate(
     intelligence=10,
     wisdom=12,
     charisma=16,
+    armor_class=12,
     starting_items=[
         StartingItem(
             name="Light Crossbow",
@@ -522,6 +535,7 @@ WARLOCK = ClassTemplate(
     intelligence=12,
     wisdom=10,
     charisma=16,
+    armor_class=13,
     starting_items=[
         StartingItem(
             name="Light Crossbow",

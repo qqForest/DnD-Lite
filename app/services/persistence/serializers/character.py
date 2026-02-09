@@ -53,6 +53,7 @@ class CharacterSerializer:
                 "charisma": c.charisma,
                 "max_hp": c.max_hp,
                 "current_hp": c.current_hp,
+                "armor_class": c.armor_class,
             }
             for c in characters
         ]
@@ -81,6 +82,7 @@ class CharacterSerializer:
                 charisma=char_data.get("charisma", 10),
                 max_hp=char_data.get("max_hp", 10),
                 current_hp=char_data.get("current_hp", 10),
+                armor_class=char_data.get("armor_class", 10),
             )
             context.db.add(character)
             context.db.flush()

@@ -24,9 +24,9 @@
       <div v-if="loadingTemplates" class="loading-text">Загрузка...</div>
       <template v-else>
         <TemplateCarousel
+          ref="carouselRef"
           :templates="templates"
-          :selected-id="selectedTemplateId"
-          @select="handleTemplateSelect"
+          :current-details="currentTemplateDetails ?? undefined"
         />
 
         <div class="form-section">
@@ -102,7 +102,6 @@
           @click="currentStep = 3"
         >
           Далее
-          <ArrowRight :size="20" />
         </BaseButton>
       </div>
     </div>
@@ -136,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, Sparkles, Check } from 'lucide-vue-next'
 import { templatesApi, userCharactersApi } from '@/services/api'
@@ -156,16 +155,22 @@ const isNpc = computed(() => route.query.npc === 'true')
 const currentStep = ref(1)
 const templates = ref<ClassTemplateListItem[]>([])
 const loadingTemplates = ref(true)
-const selectedTemplateId = ref<string | null>(null)
-const selectedTemplate = ref<ClassTemplateResponse | null>(null)
+const carouselRef = ref<InstanceType<typeof TemplateCarousel> | null>(null)
+const detailsCache = ref<Record<string, ClassTemplateResponse>>({})
+const currentTemplateDetails = ref<ClassTemplateResponse | null>(null)
 const characterName = ref('')
 const appearance = ref('')
 const createdCharacter = ref<UserCharacter | null>(null)
 const generatingAvatar = ref(false)
 const avatarUrl = ref<string | null>(null)
 
+const currentTemplateId = computed(() => {
+  const idx = carouselRef.value?.currentIndex ?? 0
+  return templates.value[idx]?.id ?? null
+})
+
 const canProceedStep1 = computed(() => {
-  return selectedTemplateId.value && characterName.value.trim().length >= 1
+  return templates.value.length > 0 && characterName.value.trim().length >= 1
 })
 
 onMounted(async () => {
@@ -178,24 +183,45 @@ onMounted(async () => {
   }
 })
 
-async function handleTemplateSelect(templateId: string) {
-  selectedTemplateId.value = templateId
+watch(currentTemplateId, async (id) => {
+  if (!id) {
+    currentTemplateDetails.value = null
+    return
+  }
+  if (detailsCache.value[id]) {
+    currentTemplateDetails.value = detailsCache.value[id]
+    return
+  }
   try {
-    selectedTemplate.value = await templatesApi.get(templateId)
+    const details = await templatesApi.get(id)
+    detailsCache.value[id] = details
+    currentTemplateDetails.value = details
   } catch (err) {
     console.error('Failed to load template:', err)
   }
-}
+})
 
-function goToStep2() {
+async function goToStep2() {
   if (!canProceedStep1.value) return
+  // Убедимся что детали текущего шаблона загружены
+  const id = currentTemplateId.value
+  if (id && !detailsCache.value[id]) {
+    try {
+      const details = await templatesApi.get(id)
+      detailsCache.value[id] = details
+      currentTemplateDetails.value = details
+    } catch (err) {
+      toast.error('Не удалось загрузить шаблон')
+      return
+    }
+  }
   currentStep.value = 2
 }
 
 async function createCharacter(): Promise<UserCharacter | null> {
-  if (!selectedTemplate.value) return null
+  if (!currentTemplateDetails.value) return null
 
-  const tmpl = selectedTemplate.value
+  const tmpl = currentTemplateDetails.value
   try {
     const char = await userCharactersApi.create({
       name: characterName.value.trim(),
@@ -210,6 +236,7 @@ async function createCharacter(): Promise<UserCharacter | null> {
       charisma: tmpl.charisma,
       max_hp: tmpl.recommended_hp,
       current_hp: tmpl.recommended_hp,
+      armor_class: tmpl.recommended_ac,
       appearance: appearance.value.trim() || null,
     })
     return char

@@ -57,6 +57,50 @@ class TestCreateCharacter:
 
 
 @pytest.mark.asyncio
+class TestCharacterArmorClass:
+    async def test_default_ac(self, client):
+        resp, _, _ = await create_session_with_user(client)
+        headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post("/api/characters", json={
+                "name": "DefaultAC",
+                "max_hp": 10,
+            }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["armor_class"] == 10
+
+    async def test_explicit_ac(self, client):
+        resp, _, _ = await create_session_with_user(client)
+        headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post("/api/characters", json={
+                "name": "Knight",
+                "max_hp": 12,
+                "armor_class": 16,
+            }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["armor_class"] == 16
+
+    async def test_update_ac(self, client):
+        resp, _, _ = await create_session_with_user(client)
+        headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            create_resp = await client.post("/api/characters", json={
+                "name": "ACUpdate", "max_hp": 10,
+            }, headers=headers)
+            char_id = create_resp.json()["id"]
+
+            resp = await client.patch(f"/api/characters/{char_id}", json={
+                "armor_class": 18,
+            }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["armor_class"] == 18
+
+
+@pytest.mark.asyncio
 class TestGetCharacter:
     async def test_get_existing(self, client):
         resp, _, _ = await create_session_with_user(client)

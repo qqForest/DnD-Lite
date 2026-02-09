@@ -11,7 +11,20 @@
         <span v-if="character.class_name && character.level"> • </span>
         <span v-if="character.level">Уровень {{ character.level }}</span>
       </p>
-      <HPBar :current="character.current_hp" :max="character.max_hp" />
+      <div class="character-bottom">
+        <HPBar :current="character.current_hp" :max="character.max_hp" />
+        <div v-if="(character as any).armor_class" class="ac-inline">
+          <svg viewBox="0 0 40 46" class="ac-inline-svg">
+            <path
+              d="M20 2 L38 10 L38 24 C38 34 28 42 20 44 C12 42 2 34 2 24 L2 10 Z"
+              fill="var(--color-bg-primary, #12121a)"
+              stroke="var(--color-accent-primary, #c0a46c)"
+              stroke-width="2.5"
+            />
+          </svg>
+          <span class="ac-inline-value">{{ (character as any).armor_class }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -172,5 +185,42 @@ const classTypeClass = computed(() => {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin: 0 0 var(--spacing-2) 0;
+}
+
+.character-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.character-bottom :deep(.hp-bar) {
+  flex: 1;
+}
+
+.ac-inline {
+  position: relative;
+  width: 32px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ac-inline-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.ac-inline-value {
+  position: relative;
+  font-family: var(--font-family-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-primary, #c0a46c);
+  line-height: 1;
+  margin-top: -1px;
 }
 </style>

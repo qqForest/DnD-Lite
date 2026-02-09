@@ -64,6 +64,16 @@ MIGRATIONS = [
         "column": "avatar_url",
         "sql": "ALTER TABLE characters ADD COLUMN avatar_url VARCHAR",
     },
+    {
+        "table": "characters",
+        "column": "armor_class",
+        "sql": "ALTER TABLE characters ADD COLUMN armor_class INTEGER DEFAULT 10",
+    },
+    {
+        "table": "user_characters",
+        "column": "armor_class",
+        "sql": "ALTER TABLE user_characters ADD COLUMN armor_class INTEGER DEFAULT 10",
+    },
 ]
 
 

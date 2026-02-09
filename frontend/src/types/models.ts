@@ -60,6 +60,7 @@ export interface UserCharacter {
   charisma: number
   max_hp: number
   current_hp: number
+  armor_class: number
   appearance: string | null
   avatar_url: string | null
   sessions_played: number
@@ -79,6 +80,7 @@ export interface UserCharacterCreate {
   charisma?: number
   max_hp?: number
   current_hp?: number
+  armor_class?: number
   appearance?: string | null
 }
 
@@ -95,6 +97,7 @@ export interface UserCharacterUpdate {
   charisma?: number
   max_hp?: number
   current_hp?: number
+  armor_class?: number
   appearance?: string | null
 }
 
@@ -193,6 +196,7 @@ export interface Character {
   charisma: number
   max_hp: number
   current_hp: number
+  armor_class: number
   appearance: string | null
   avatar_url: string | null
 }
@@ -209,6 +213,7 @@ export interface CharacterCreate {
   charisma?: number
   max_hp?: number
   current_hp?: number | null
+  armor_class?: number
 }
 
 export interface CharacterUpdate {
@@ -223,6 +228,7 @@ export interface CharacterUpdate {
   charisma?: number
   max_hp?: number
   current_hp?: number | null
+  armor_class?: number
 }
 
 export interface DiceRoll {
@@ -318,6 +324,7 @@ export interface ClassTemplateResponse {
   wisdom: number
   charisma: number
   recommended_hp: number
+  recommended_ac: number
   starting_items: StartingItemSchema[]
   starting_spells: StartingSpellSchema[]
 }
