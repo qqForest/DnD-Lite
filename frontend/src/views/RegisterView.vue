@@ -112,7 +112,7 @@ async function handleRegister() {
   errorMsg.value = ''
   try {
     await authStore.register(user.trim(), name.trim(), pass, role.value)
-    router.push({ name: 'home' })
+    router.push({ name: 'dashboard' })
   } catch (error: any) {
     errorMsg.value = error.response?.data?.detail || 'Не удалось зарегистрироваться. Попробуйте другой username.'
   } finally {

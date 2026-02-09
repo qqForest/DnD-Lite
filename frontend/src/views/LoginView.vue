@@ -86,7 +86,7 @@ async function handleLogin() {
   errorMsg.value = ''
   try {
     await authStore.login(user.trim(), pass)
-    router.push({ name: 'home' })
+    router.push({ name: 'dashboard' })
   } catch (error: any) {
     errorMsg.value = error.response?.data?.detail || 'Не удалось войти. Проверьте данные.'
   } finally {

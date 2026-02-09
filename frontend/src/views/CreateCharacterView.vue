@@ -1,109 +1,134 @@
 <template>
-  <div class="create-character-view">
-    <div class="container">
-      <div class="header">
-        <BaseButton variant="ghost" size="sm" @click="router.push({ name: 'profile' })">
-          &larr; Назад
-        </BaseButton>
+  <div class="wizard-view">
+    <!-- TopBar -->
+    <div class="wizard-topbar">
+      <button class="back-btn" @click="handleBack">
+        &larr;
+      </button>
+      <h1 class="topbar-title">{{ isNpc ? 'Новый NPC' : 'Новый персонаж' }}</h1>
+      <span class="step-label">{{ currentStep }} / 3</span>
+    </div>
+
+    <!-- Step dots -->
+    <div class="step-dots">
+      <span
+        v-for="s in 3"
+        :key="s"
+        class="step-dot"
+        :class="{ active: s <= currentStep }"
+      />
+    </div>
+
+    <!-- Step 1: Class selection -->
+    <div v-if="currentStep === 1" class="step-content">
+      <div v-if="loadingTemplates" class="loading-text">Загрузка...</div>
+      <template v-else>
+        <TemplateCarousel
+          :templates="templates"
+          :selected-id="selectedTemplateId"
+          @select="handleTemplateSelect"
+        />
+
+        <div class="form-section">
+          <label class="field-label">Имя персонажа</label>
+          <BaseInput
+            v-model="characterName"
+            placeholder="Введите имя"
+          />
+        </div>
+
+        <div class="step-actions">
+          <BaseButton
+            variant="primary"
+            size="lg"
+            class="full-btn"
+            :disabled="!canProceedStep1"
+            @click="goToStep2"
+          >
+            Далее
+          </BaseButton>
+        </div>
+      </template>
+    </div>
+
+    <!-- Step 2: Avatar -->
+    <div v-if="currentStep === 2" class="step-content">
+      <div class="avatar-preview-area">
+        <div class="avatar-card">
+          <img
+            v-if="avatarUrl"
+            :src="avatarUrl"
+            alt="Аватар"
+            class="avatar-image"
+          />
+          <div v-else class="avatar-placeholder">
+            <User :size="48" :stroke-width="1" />
+          </div>
+        </div>
       </div>
 
-      <h1 class="title">{{ isNpc ? 'Новый NPC' : 'Новый персонаж' }}</h1>
+      <div class="form-section">
+        <label class="field-label">Описание портрета</label>
+        <textarea
+          class="appearance-textarea"
+          v-model="appearance"
+          placeholder="Опишите внешность: раса, телосложение, черты лица, одежда..."
+          rows="3"
+        ></textarea>
+      </div>
 
-      <!-- Template selector -->
-      <section class="section" v-if="!isNpc">
-        <h2 class="section-title">Шаблон класса (опционально)</h2>
-        <TemplateSelector @template-selected="handleTemplateSelected" />
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Основные данные</h2>
-        <div class="form-group">
-          <label class="label">Имя</label>
-          <BaseInput v-model="form.name" placeholder="Имя персонажа" />
-          <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Класс</label>
-          <BaseInput v-model="form.class_name" placeholder="Класс (например: Воин)" />
-        </div>
-
-        <div class="form-group">
-          <label class="label">Уровень</label>
-          <input
-            type="number"
-            class="number-input"
-            v-model.number="form.level"
-            min="1"
-            max="20"
-          />
-          <span v-if="errors.level" class="field-error">{{ errors.level }}</span>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Характеристики</h2>
-        <div class="stats-grid">
-          <div class="stat-field" v-for="stat in statFields" :key="stat.key">
-            <label class="label">{{ stat.label }}</label>
-            <input
-              type="number"
-              class="number-input"
-              v-model.number="(form as any)[stat.key]"
-              min="1"
-              max="30"
-            />
-            <span v-if="(errors as any)[stat.key]" class="field-error">{{ (errors as any)[stat.key] }}</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Внешность</h2>
-        <div class="form-group">
-          <label class="label">Описание внешности (для генерации аватара)</label>
-          <textarea
-            class="appearance-textarea"
-            v-model="form.appearance"
-            placeholder="Опишите внешность персонажа: раса, телосложение, черты лица, одежда, особые приметы..."
-            rows="3"
-          ></textarea>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Здоровье</h2>
-        <div class="hp-fields">
-          <div class="form-group">
-            <label class="label">Макс. HP</label>
-            <input
-              type="number"
-              class="number-input"
-              v-model.number="form.max_hp"
-              min="1"
-            />
-            <span v-if="errors.max_hp" class="field-error">{{ errors.max_hp }}</span>
-          </div>
-          <div class="form-group">
-            <label class="label">Текущие HP</label>
-            <input
-              type="number"
-              class="number-input"
-              v-model.number="form.current_hp"
-              min="0"
-              :max="form.max_hp"
-            />
-            <span v-if="errors.current_hp" class="field-error">{{ errors.current_hp }}</span>
-          </div>
-        </div>
-      </section>
-
-      <div class="form-actions">
-        <BaseButton variant="ghost" @click="router.push({ name: 'profile' })">
-          Отмена
+      <div class="step-actions">
+        <BaseButton
+          variant="primary"
+          size="lg"
+          class="full-btn"
+          :disabled="!appearance.trim() || generatingAvatar"
+          @click="handleGenerate"
+        >
+          <span v-if="generatingAvatar" class="spinner"></span>
+          <Sparkles v-else :size="20" />
+          {{ generatingAvatar ? 'Генерация...' : 'Сгенерировать' }}
         </BaseButton>
-        <BaseButton variant="primary" :disabled="!canSubmit || submitting" @click="handleSubmit">
-          Создать
+        <button class="skip-link" @click="handleSkip">
+          Пропустить
+        </button>
+      </div>
+
+      <div v-if="avatarUrl" class="step-actions">
+        <BaseButton
+          variant="primary"
+          size="lg"
+          class="full-btn"
+          @click="currentStep = 3"
+        >
+          Далее
+          <ArrowRight :size="20" />
+        </BaseButton>
+      </div>
+    </div>
+
+    <!-- Step 3: Preview -->
+    <div v-if="currentStep === 3" class="step-content">
+      <div class="preview-area">
+        <CharacterFlipCard
+          v-if="createdCharacter"
+          :character="createdCharacter"
+        />
+      </div>
+
+      <div class="preview-name" v-if="createdCharacter">
+        {{ createdCharacter.name }}
+      </div>
+
+      <div class="step-actions">
+        <BaseButton
+          variant="primary"
+          size="lg"
+          class="full-btn"
+          @click="handleDone"
+        >
+          <Check :size="20" />
+          Готово
         </BaseButton>
       </div>
     </div>
@@ -111,218 +136,342 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { userCharactersApi, templatesApi } from '@/services/api'
+import { User, Sparkles, Check } from 'lucide-vue-next'
+import { templatesApi, userCharactersApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
-import TemplateSelector from '@/components/templates/TemplateSelector.vue'
+import TemplateCarousel from '@/components/templates/TemplateCarousel.vue'
+import CharacterFlipCard from '@/components/profile/CharacterFlipCard.vue'
+import type { ClassTemplateListItem, ClassTemplateResponse, UserCharacter } from '@/types/models'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 
 const isNpc = computed(() => route.query.npc === 'true')
-const submitting = ref(false)
 
-const form = reactive({
-  name: '',
-  class_name: '',
-  level: 1,
-  strength: 10,
-  dexterity: 10,
-  constitution: 10,
-  intelligence: 10,
-  wisdom: 10,
-  charisma: 10,
-  max_hp: 10,
-  current_hp: 10,
-  appearance: '',
+const currentStep = ref(1)
+const templates = ref<ClassTemplateListItem[]>([])
+const loadingTemplates = ref(true)
+const selectedTemplateId = ref<string | null>(null)
+const selectedTemplate = ref<ClassTemplateResponse | null>(null)
+const characterName = ref('')
+const appearance = ref('')
+const createdCharacter = ref<UserCharacter | null>(null)
+const generatingAvatar = ref(false)
+const avatarUrl = ref<string | null>(null)
+
+const canProceedStep1 = computed(() => {
+  return selectedTemplateId.value && characterName.value.trim().length >= 1
 })
 
-const statFields = [
-  { key: 'strength', label: 'Сила' },
-  { key: 'dexterity', label: 'Ловкость' },
-  { key: 'constitution', label: 'Телосложение' },
-  { key: 'intelligence', label: 'Интеллект' },
-  { key: 'wisdom', label: 'Мудрость' },
-  { key: 'charisma', label: 'Харизма' },
-]
-
-const errors = computed(() => {
-  const e: Record<string, string> = {}
-  if (form.name.length < 1 || form.name.length > 100) e.name = 'Имя: 1-100 символов'
-  if (form.level < 1 || form.level > 20) e.level = 'Уровень: 1-20'
-  for (const stat of statFields) {
-    const val = (form as any)[stat.key]
-    if (val < 1 || val > 30) e[stat.key] = '1-30'
-  }
-  if (form.max_hp < 1) e.max_hp = 'Минимум 1'
-  if (form.current_hp < 0 || form.current_hp > form.max_hp) e.current_hp = `0-${form.max_hp}`
-  return e
-})
-
-const canSubmit = computed(() => {
-  return form.name.trim().length >= 1 && Object.keys(errors.value).length === 0
-})
-
-async function handleTemplateSelected(templateId: string) {
+onMounted(async () => {
   try {
-    const template = await templatesApi.get(templateId)
-    form.class_name = template.name_ru
-    form.strength = template.strength
-    form.dexterity = template.dexterity
-    form.constitution = template.constitution
-    form.intelligence = template.intelligence
-    form.wisdom = template.wisdom
-    form.charisma = template.charisma
-    form.max_hp = template.recommended_hp
-    form.current_hp = template.recommended_hp
+    templates.value = await templatesApi.list()
+  } catch (err) {
+    toast.error('Не удалось загрузить шаблоны')
+  } finally {
+    loadingTemplates.value = false
+  }
+})
+
+async function handleTemplateSelect(templateId: string) {
+  selectedTemplateId.value = templateId
+  try {
+    selectedTemplate.value = await templatesApi.get(templateId)
   } catch (err) {
     console.error('Failed to load template:', err)
   }
 }
 
-async function handleSubmit() {
-  if (!canSubmit.value) return
-  submitting.value = true
+function goToStep2() {
+  if (!canProceedStep1.value) return
+  currentStep.value = 2
+}
+
+async function createCharacter(): Promise<UserCharacter | null> {
+  if (!selectedTemplate.value) return null
+
+  const tmpl = selectedTemplate.value
   try {
-    await userCharactersApi.create({
-      name: form.name.trim(),
-      class_name: form.class_name.trim() || null,
-      level: form.level,
+    const char = await userCharactersApi.create({
+      name: characterName.value.trim(),
+      class_name: tmpl.name_ru,
+      level: 1,
       is_npc: isNpc.value,
-      strength: form.strength,
-      dexterity: form.dexterity,
-      constitution: form.constitution,
-      intelligence: form.intelligence,
-      wisdom: form.wisdom,
-      charisma: form.charisma,
-      max_hp: form.max_hp,
-      current_hp: form.current_hp,
-      appearance: form.appearance.trim() || null,
+      strength: tmpl.strength,
+      dexterity: tmpl.dexterity,
+      constitution: tmpl.constitution,
+      intelligence: tmpl.intelligence,
+      wisdom: tmpl.wisdom,
+      charisma: tmpl.charisma,
+      max_hp: tmpl.recommended_hp,
+      current_hp: tmpl.recommended_hp,
+      appearance: appearance.value.trim() || null,
     })
-    toast.success(isNpc.value ? 'NPC создан!' : 'Персонаж создан!')
-    router.push({ name: 'profile' })
+    return char
   } catch (err: any) {
     toast.error(err.response?.data?.detail || 'Не удалось создать персонажа')
+    return null
+  }
+}
+
+async function handleGenerate() {
+  if (!appearance.value.trim()) return
+  generatingAvatar.value = true
+
+  try {
+    if (!createdCharacter.value) {
+      const char = await createCharacter()
+      if (!char) return
+      createdCharacter.value = char
+    } else {
+      await userCharactersApi.update(createdCharacter.value.id, {
+        appearance: appearance.value.trim(),
+      })
+    }
+
+    const updated = await userCharactersApi.generateAvatar(createdCharacter.value!.id)
+    createdCharacter.value = updated
+    avatarUrl.value = updated.avatar_url
+    toast.success('Аватар сгенерирован!')
+  } catch (err: any) {
+    toast.error(err.response?.data?.detail || 'Не удалось сгенерировать аватар')
   } finally {
-    submitting.value = false
+    generatingAvatar.value = false
+  }
+}
+
+async function handleSkip() {
+  if (!createdCharacter.value) {
+    const char = await createCharacter()
+    if (!char) return
+    createdCharacter.value = char
+  }
+  currentStep.value = 3
+}
+
+function handleDone() {
+  toast.success(isNpc.value ? 'NPC создан!' : 'Персонаж создан!')
+  router.push({ name: 'profile' })
+}
+
+function handleBack() {
+  if (currentStep.value > 1) {
+    currentStep.value--
+  } else {
+    router.push({ name: 'profile' })
   }
 }
 </script>
 
 <style scoped>
-.create-character-view {
+.wizard-view {
   min-height: 100vh;
-  padding: var(--spacing-6);
+  min-height: 100dvh;
   background: var(--color-bg-primary);
   display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.wizard-topbar {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
+  gap: var(--spacing-3);
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
   justify-content: center;
-}
-
-.container {
-  width: 100%;
-  max-width: 700px;
-}
-
-.header {
-  margin-bottom: var(--spacing-4);
-}
-
-.title {
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  border: none;
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-6);
-}
-
-.section {
-  margin-bottom: var(--spacing-6);
-}
-
-.section-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-3);
-}
-
-.form-group {
-  margin-bottom: var(--spacing-3);
-}
-
-.label {
-  display: block;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-1);
-}
-
-.number-input {
-  width: 100%;
-  padding: var(--spacing-2) var(--spacing-3);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  cursor: pointer;
   border-radius: var(--radius-md);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-btn:active {
+  background: var(--alpha-overlay-medium);
+}
+
+.topbar-title {
+  flex: 1;
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  margin: 0;
 }
 
-.number-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
+.step-label {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-3);
+.step-dots {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: center;
+  padding-bottom: var(--spacing-4);
 }
 
-@media (max-width: 480px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  opacity: 0.3;
+  transition: all 200ms ease;
 }
 
-.hp-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-3);
+.step-dot.active {
+  opacity: 1;
+  background: var(--color-accent-primary);
+  box-shadow: var(--glow-accent);
 }
 
-.field-error {
-  font-size: var(--font-size-xs);
-  color: var(--color-danger, #ef4444);
-  margin-top: 2px;
-  display: block;
+.step-content {
+  flex: 1;
+  padding: 0 var(--spacing-4) var(--spacing-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.loading-text {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-8) 0;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
 }
 
 .appearance-textarea {
   width: 100%;
   padding: var(--spacing-2) var(--spacing-3);
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border, rgba(255,255,255,0.1));
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-size: var(--font-size-base);
   font-family: inherit;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .appearance-textarea:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--color-accent-primary);
 }
 
-.form-actions {
+.avatar-preview-area {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+}
+
+.avatar-card {
+  width: 200px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border, rgba(255,255,255,0.1));
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.step-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-3);
-  padding-top: var(--spacing-4);
-  border-top: 1px solid var(--color-border);
+}
+
+.full-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+}
+
+.skip-link {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: var(--spacing-2);
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.skip-link:active {
+  color: var(--color-text-primary);
+}
+
+.preview-area {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+}
+
+.preview-name {
+  text-align: center;
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: var(--spacing-1);
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

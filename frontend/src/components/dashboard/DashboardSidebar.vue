@@ -5,7 +5,7 @@
         <div class="sidebar" @click.stop>
           <div class="sidebar-header">
             <h2>Меню</h2>
-            <button class="close-btn" @click="close">×</button>
+            <button class="close-btn" @click="close">&times;</button>
           </div>
 
           <div class="sidebar-content">
@@ -15,9 +15,9 @@
             </div>
 
             <nav class="sidebar-nav">
-              <button class="nav-btn" @click="goHome">
-                <Home :size="20" />
-                <span>На главную</span>
+              <button class="nav-btn" @click="goProfile">
+                <UserCircle :size="20" />
+                <span>Мой профиль</span>
               </button>
               <button class="nav-btn nav-btn--danger" @click="handleLogout">
                 <LogOut :size="20" />
@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Home, LogOut } from 'lucide-vue-next'
+import { UserCircle, LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 
@@ -64,9 +64,9 @@ function close() {
   emit('update:modelValue', false)
 }
 
-function goHome() {
+function goProfile() {
   close()
-  router.push({ name: 'dashboard' })
+  router.push({ name: 'profile' })
 }
 
 function handleLogout() {

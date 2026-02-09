@@ -17,7 +17,11 @@ const router = createRouter({
     },
     {
       path: '/',
-      name: 'home',
+      redirect: '/dashboard'
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
       component: () => import('@/views/HomeView.vue'),
       meta: { requiresUser: true }
     },
@@ -96,12 +100,12 @@ router.beforeEach(async (to, from, next) => {
 
   // Если пользователь уже залогинен и идёт на login/register — редирект на home
   if ((to.name === 'login' || to.name === 'register') && authStore.isLoggedIn) {
-    next({ name: 'home' })
+    next({ name: 'dashboard' })
     return
   }
 
   if (to.meta.requiresAuth && !sessionStore.isAuthenticated) {
-    next({ name: 'home' })
+    next({ name: 'dashboard' })
     return
   }
 
@@ -146,7 +150,7 @@ router.beforeEach(async (to, from, next) => {
     if (sessionStore.isAuthenticated) {
       next({ name: 'player' })
     } else {
-      next({ name: 'home' })
+      next({ name: 'dashboard' })
     }
   } else if (to.meta.role === 'player' && sessionStore.isGm) {
     next({ name: 'gm' })

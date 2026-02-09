@@ -149,7 +149,7 @@ function handleLeave() {
 onMounted(async () => {
   // Проверка аутентификации
   if (!sessionStore.isAuthenticated || !sessionStore.isGm) {
-    router.push({ name: 'home' })
+    router.push({ name: 'dashboard' })
     return
   }
 
