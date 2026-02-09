@@ -1,3 +1,10 @@
+2026-02-09: CI/CD — GitHub Actions (тесты + деплой на VPS)
+  - Создан .github/workflows/deploy.yml
+  - Job test: Python 3.11, pip install, pytest — запускается на push и PR в main
+  - Job deploy: SSH на VPS, git pull, docker compose up — только при push в main после успешных тестов
+  - Секреты: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PORT
+  - CLAUDE.md: добавлен раздел CI/CD
+
 2026-02-09: Документация стандарта тестирования
   - Создан docs/testing.md — регламент написания тестов (структура, паттерны, фикстуры, чеклист)
   - CLAUDE.md: добавлен раздел «Тестирование бэкенда» с командами и ссылкой на регламент

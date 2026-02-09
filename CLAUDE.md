@@ -218,3 +218,12 @@ Alembic не используется. Вместо этого — лёгкий 
 - **docker-compose.yml**: Продакшн (network_mode: host, volume для SQLite БД).
 - **docker-compose.dev.yml**: Разработка (два сервиса: backend с --reload на :8000, frontend с Vite на :5173).
 - **SPA routing**: StarletteHTTPException handler отдаёт index.html для не-API 404 ошибок.
+
+### CI/CD
+
+GitHub Actions workflow (`.github/workflows/deploy.yml`):
+
+1. **test** — запускается на каждый push и PR в `main`. Ставит Python 3.11, устанавливает зависимости, прогоняет `pytest tests/ -v --tb=short`.
+2. **deploy** — запускается только при push в `main` и только если `test` прошёл. SSH на VPS → `git pull && docker compose up -d --build`.
+
+Секреты (Settings → Secrets → Actions): `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_PORT`.
