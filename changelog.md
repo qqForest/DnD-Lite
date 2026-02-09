@@ -1,3 +1,16 @@
+2026-02-09: Документация стандарта тестирования
+  - Создан docs/testing.md — регламент написания тестов (структура, паттерны, фикстуры, чеклист)
+  - CLAUDE.md: добавлен раздел «Тестирование бэкенда» с командами и ссылкой на регламент
+  - Правило: любое изменение бэкенда обязательно сопровождается тестами
+
+2026-02-09: Полное покрытие бэкенда тестами (206 тестов)
+  - Инфраструктура: pytest + pytest-asyncio + httpx, conftest с фикстурами (in-memory SQLite, транзакционный rollback)
+  - Unit-тесты: abilities, class_templates, auth (JWT/bcrypt), dice_service (парсинг, броски, advantage/disadvantage)
+  - Интеграционные тесты сервисов: ModifierService, CombatService (инициатива, ходы, урон/лечение)
+  - API тесты: session, users, characters, templates, dice, combat, maps, user_characters, user_maps, persistence (export/import)
+  - WebSocket тесты: подключение/отказ, roll_dice, chat, обработка ошибок (невалидный JSON, неизвестный тип)
+  - Итого: 65 unit + 141 integration = 206 тестов, все проходят
+
 2026-02-07: Редизайн PlayerView (игровой интерфейс игрока) для мобильных
   - CharacterFlipCard: добавлен проп compact для мини-карточки (120px, уменьшенные шрифты/статы, скрыты кнопки)
   - PlayerView: нижний блок заменён на character-bar (инвентарь-заглушка + мини FlipCard + индикатор движения) + кнопка «Бросок» + последний результат
