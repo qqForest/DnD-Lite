@@ -231,8 +231,8 @@ export const useSessionStore = defineStore('session', () => {
       // Clear session
       clearSession()
 
-      // Redirect to home
-      router.push({ name: 'home' })
+      // Redirect to dashboard
+      router.push({ name: 'dashboard' })
     })
   }
 

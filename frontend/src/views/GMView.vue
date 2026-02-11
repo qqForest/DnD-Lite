@@ -63,7 +63,7 @@ async function handleDeleteSession() {
 
     // Clear session and redirect immediately
     sessionStore.clearSession()
-    router.push({ name: 'home' })
+    router.push({ name: 'dashboard' })
   } catch (error) {
     console.error('Failed to delete session:', error)
     showDeleteModal.value = false
