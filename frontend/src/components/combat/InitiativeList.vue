@@ -8,8 +8,8 @@
       <TransitionGroup name="list" tag="div" class="entries">
         <div
           v-for="(entry, index) in sortedEntries"
-          :key="entry.player_id"
-          :class="['initiative-entry', { 'no-roll': entry.roll === null }]"
+          :key="entry.is_npc ? `npc-${entry.character_id}` : `player-${entry.player_id}`"
+          :class="['initiative-entry', { 'no-roll': entry.roll === null, 'is-npc': entry.is_npc }]"
         >
           <div class="entry-rank">
             <span v-if="index === 0 && entry.roll !== null" class="medal">🥇</span>
@@ -19,8 +19,11 @@
           </div>
 
           <div class="entry-info">
-            <span class="player-name">{{ entry.character_name || entry.player_name }}</span>
-            <span v-if="entry.character_name" class="player-subname">{{ entry.player_name }}</span>
+            <span class="player-name">
+              {{ entry.character_name || entry.player_name }}
+              <span v-if="entry.is_npc" class="npc-badge">NPC</span>
+            </span>
+            <span v-if="entry.character_name && !entry.is_npc" class="player-subname">{{ entry.player_name }}</span>
           </div>
 
           <div class="entry-roll">
@@ -101,6 +104,10 @@ const sortedEntries = computed(() => {
   opacity: 0.5;
 }
 
+.initiative-entry.is-npc {
+  border-left: 3px solid var(--color-danger);
+}
+
 .entry-rank {
   width: 32px;
   text-align: center;
@@ -125,11 +132,24 @@ const sortedEntries = computed(() => {
 }
 
 .player-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.npc-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  background: var(--color-danger);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
+  flex-shrink: 0;
 }
 
 .player-subname {

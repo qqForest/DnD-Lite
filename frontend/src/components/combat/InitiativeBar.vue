@@ -9,8 +9,11 @@
       <TransitionGroup name="card" tag="div" class="cards-container">
         <div
           v-for="(entry, index) in sortedEntries"
-          :key="entry.player_id"
-          :class="['initiative-card', { 'no-roll': entry.roll === null }]"
+          :key="entry.is_npc ? `npc-${entry.character_id}` : `player-${entry.player_id}`"
+          :class="['initiative-card', {
+            'no-roll': entry.roll === null,
+            'is-npc': entry.is_npc
+          }]"
         >
           <div class="card-rank">
             <span v-if="index === 0 && entry.roll !== null" class="medal">🥇</span>
@@ -18,12 +21,15 @@
             <span v-else-if="index === 2 && entry.roll !== null" class="medal">🥉</span>
             <span v-else class="rank-number">{{ entry.roll !== null ? index + 1 : '—' }}</span>
           </div>
-          
+
           <div class="card-info">
-            <div class="character-name">{{ entry.character_name || entry.player_name }}</div>
-            <div v-if="entry.character_name" class="player-name">{{ entry.player_name }}</div>
+            <div class="character-name">
+              {{ entry.character_name || entry.player_name }}
+              <span v-if="entry.is_npc" class="npc-badge">NPC</span>
+            </div>
+            <div v-if="entry.character_name && !entry.is_npc" class="player-name">{{ entry.player_name }}</div>
           </div>
-          
+
           <div class="card-roll">
             <span v-if="entry.roll !== null" class="roll-value">{{ entry.roll }}</span>
             <span v-else class="roll-pending">?</span>
@@ -108,6 +114,10 @@ const sortedEntries = computed(() => {
   opacity: 0.6;
 }
 
+.initiative-card.is-npc {
+  border-left: 3px solid var(--color-danger);
+}
+
 .card-rank {
   width: 28px;
   text-align: center;
@@ -130,12 +140,25 @@ const sortedEntries = computed(() => {
 }
 
 .character-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.npc-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  background: var(--color-danger);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
+  flex-shrink: 0;
 }
 
 .player-name {

@@ -6,6 +6,7 @@ import { wsService } from '@/services/websocket'
 export interface InitiativeEntry {
     player_id: number
     player_name: string
+    character_id?: number | null
     character_name: string | null
     roll: number | null
     is_npc: boolean
@@ -45,6 +46,18 @@ export const useCombatStore = defineStore('combat', () => {
             return response.roll
         } finally {
             isRolling.value = false
+        }
+    }
+
+    async function rollInitiativeForNpc(characterId: number): Promise<number> {
+        try {
+            console.log('[Combat Store] Calling API to roll initiative for NPC:', characterId)
+            const response = await combatApi.rollInitiativeForNpc(characterId)
+            console.log('[Combat Store] API response:', response)
+            return response.roll
+        } catch (error) {
+            console.error('[Combat Store] Failed to roll initiative for NPC:', error)
+            throw error
         }
     }
 
@@ -90,20 +103,51 @@ export const useCombatStore = defineStore('combat', () => {
             resetState()
         })
 
-        wsService.on('initiative_rolled', (data: { player_id: number; player_name: string; roll: number }) => {
-            // Update local list (for GM)
-            const existingIndex = initiativeList.value.findIndex(e => e.player_id === data.player_id)
-            if (existingIndex !== -1) {
-                initiativeList.value[existingIndex].roll = data.roll
-            } else {
-                initiativeList.value.push({
-                    player_id: data.player_id,
-                    player_name: data.player_name,
-                    character_name: null,
-                    roll: data.roll,
-                    is_npc: false
-                })
+        wsService.on('initiative_rolled', (data: {
+            player_id?: number
+            character_id?: number
+            player_name: string
+            character_name?: string
+            roll: number
+            is_npc?: boolean
+        }) => {
+            console.log('[Combat Store] initiative_rolled event received:', data)
+
+            // Handle NPC roll
+            if (data.is_npc && data.character_id) {
+                console.log('[Combat Store] Processing NPC initiative roll:', data)
+                const existingIndex = initiativeList.value.findIndex(
+                    e => e.character_id === data.character_id && e.is_npc
+                )
+                if (existingIndex !== -1) {
+                    initiativeList.value[existingIndex].roll = data.roll
+                } else {
+                    initiativeList.value.push({
+                        player_id: 0, // Sentinel value for NPCs
+                        player_name: 'NPC',
+                        character_id: data.character_id,
+                        character_name: data.character_name || 'Неизвестный NPC',
+                        roll: data.roll,
+                        is_npc: true
+                    })
+                }
             }
+            // Handle player roll
+            else if (data.player_id) {
+                const existingIndex = initiativeList.value.findIndex(e => e.player_id === data.player_id)
+                if (existingIndex !== -1) {
+                    initiativeList.value[existingIndex].roll = data.roll
+                } else {
+                    initiativeList.value.push({
+                        player_id: data.player_id,
+                        player_name: data.player_name,
+                        character_name: data.character_name || null,
+                        roll: data.roll,
+                        is_npc: false
+                    })
+                }
+            }
+
             // Re-sort list
             initiativeList.value.sort((a, b) => {
                 if (a.roll === null && b.roll === null) return 0
@@ -129,6 +173,7 @@ export const useCombatStore = defineStore('combat', () => {
         startCombat,
         endCombat,
         rollInitiative,
+        rollInitiativeForNpc,
         fetchInitiativeList,
         fetchCombatState,
         resetState,

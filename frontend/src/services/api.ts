@@ -262,6 +262,15 @@ export const combatApi = {
     return response.data
   },
 
+  rollInitiativeForNpc: async (characterId: number): Promise<{ roll: number; character_name: string }> => {
+    const response = await api.post<{ roll: number; character_name: string }>(
+      `/combat/initiative/npc`,
+      null,
+      { params: { character_id: characterId } }
+    )
+    return response.data
+  },
+
   getInitiativeList: async (): Promise<InitiativeListResponse> => {
     const response = await api.get<InitiativeListResponse>('/combat/initiative')
     return response.data

@@ -3,8 +3,7 @@
     <div v-if="!combatStore.isActive" class="combat-start">
       <button
         class="start-combat-btn"
-        @click="handleStartCombat"
-        :disabled="isStarting"
+        @click="showCombatSetup = true"
       >
         <Swords :size="20" />
         <span>Начать бой</span>
@@ -30,6 +29,8 @@
         <InitiativeList />
       </div>
     </div>
+
+    <CombatSetupModal v-model="showCombatSetup" />
   </div>
 </template>
 
@@ -39,25 +40,13 @@ import { Swords, X } from 'lucide-vue-next'
 import { useCombatStore } from '@/stores/combat'
 import { useSessionStore } from '@/stores/session'
 import InitiativeList from '@/components/combat/InitiativeList.vue'
+import CombatSetupModal from './CombatSetupModal.vue'
 
 const combatStore = useCombatStore()
 const sessionStore = useSessionStore()
 
-const isStarting = ref(false)
+const showCombatSetup = ref(false)
 const isEnding = ref(false)
-
-async function handleStartCombat() {
-  if (!sessionStore.token || isStarting.value) return
-  
-  isStarting.value = true
-  try {
-    await combatStore.startCombat()
-  } catch (error) {
-    console.error('Failed to start combat:', error)
-  } finally {
-    isStarting.value = false
-  }
-}
 
 async function handleEndCombat() {
   if (!sessionStore.token || isEnding.value) return

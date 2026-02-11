@@ -214,6 +214,8 @@ export interface CharacterCreate {
   max_hp?: number
   current_hp?: number | null
   armor_class?: number
+  appearance?: string | null
+  avatar_url?: string | null
 }
 
 export interface CharacterUpdate {
@@ -229,6 +231,8 @@ export interface CharacterUpdate {
   max_hp?: number
   current_hp?: number | null
   armor_class?: number
+  appearance?: string | null
+  avatar_url?: string | null
 }
 
 export interface DiceRoll {
@@ -263,6 +267,7 @@ export interface CombatParticipant {
 export interface InitiativeEntry {
   player_id: number
   player_name: string
+  character_id?: number | null
   character_name: string | null
   roll: number | null
   is_npc: boolean
