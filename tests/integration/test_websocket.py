@@ -167,3 +167,40 @@ class TestWebSocketErrors:
             })
             data = ws.receive_json()
             assert data["type"] == "chat"
+
+
+class TestWebSocketExplicitLeave:
+    def test_explicit_leave_marks_player_as_left(self, ws_client):
+        """Player sends explicit_leave message → left_at is set immediately."""
+        client, db = ws_client
+        session, player, token = _setup_ws_player(db)
+
+        with client.websocket_connect(f"/ws?token={token}") as ws:
+            # Send explicit leave
+            ws.send_json({
+                "type": "explicit_leave",
+                "payload": {}
+            })
+
+            # Receive confirmation
+            data = ws.receive_json()
+            assert data["type"] == "leave_confirmed"
+
+        # Check player.left_at is set
+        db.refresh(player)
+        assert player.left_at is not None
+
+    def test_explicit_leave_confirmation(self, ws_client):
+        """Player receives leave_confirmed message after explicit leave."""
+        client, db = ws_client
+        _, _, token = _setup_ws_player(db)
+
+        with client.websocket_connect(f"/ws?token={token}") as ws:
+            ws.send_json({
+                "type": "explicit_leave",
+                "payload": {}
+            })
+
+            data = ws.receive_json()
+            assert data["type"] == "leave_confirmed"
+            assert data["payload"]["message"] == "You have left the session"

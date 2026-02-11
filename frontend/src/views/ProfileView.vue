@@ -206,7 +206,10 @@ async function handleCreateSession(userMapId?: string) {
   showCreateModal.value = false
   try {
     await sessionStore.createSession(userMapId)
-    router.push({ name: 'gm-lobby' })
+    router.push({
+      name: 'gm-lobby-with-code',
+      params: { code: sessionStore.code }
+    })
   } catch (error) {
     console.error('Failed to create session:', error)
     toast.error('Не удалось создать сессию')

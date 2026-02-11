@@ -26,6 +26,7 @@ async def handle_message(
     handlers = {
         "roll_dice": handle_roll_dice,
         "chat": handle_chat,
+        "explicit_leave": handle_explicit_leave,
     }
 
     handler = handlers.get(msg_type)
@@ -86,4 +87,23 @@ async def handle_chat(
         "player_id": player.id,
         "player_name": player.name,
         "message": message,
+    })
+
+
+async def handle_explicit_leave(
+    db: DBSession,
+    token: str,
+    player: Player,
+    payload: dict
+):
+    """Handle explicit leave request from player."""
+    from datetime import datetime
+
+    player.left_at = datetime.utcnow()
+    db.commit()
+    logger.info(f"Player {player.name} explicitly left session")
+
+    await manager.send_personal(token, {
+        "type": "leave_confirmed",
+        "payload": {"message": "You have left the session"}
     })

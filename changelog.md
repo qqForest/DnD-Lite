@@ -1,3 +1,27 @@
+## 2026-02-11 - UX Улучшения Управления Сессиями
+
+### Added
+- **Grace Period механизм:** Временный disconnect больше не помечает игрока как "left" немедленно. Вместо этого запускается grace period (5 минут). Если игрок переподключится в течение этого времени, он остаётся активным.
+- **Explicit Leave detection:** Frontend отправляет explicit_leave message при намеренном выходе из сессии (clearSession). Только explicit leave устанавливает left_at немедленно.
+- **Shareable URLs:** Добавлены параметризованные роуты `/session/:code/*` для прямого доступа к сессиям по ссылке. Игроки могут делиться ссылкой вида `/session/ABC123/join` для быстрого подключения.
+- **Shareable Link кнопка:** В SessionCodeDisplay добавлена кнопка "Копировать ссылку" рядом с "Копировать код" для удобного шеринга.
+- **Page Visibility Reconnect:** При возврате на вкладку (document visibility change) автоматически сбрасывается счётчик reconnect попыток и запускается tryRestoreSession.
+- **Code из URL:** JoinSessionView автоматически заполняет код из URL параметра при переходе по shareable link.
+- **Code в localStorage:** Session code сохраняется в localStorage для восстановления сессии при перезагрузке страницы.
+
+### Changed
+- **WebSocket disconnect logic:** Вместо немедленного left_at при disconnect запускается grace period. Только explicit_leave устанавливает left_at сразу.
+- **ConnectionManager:** Добавлены методы start_grace_period(), cancel_grace_period() и _grace_period_timer() для управления таймерами.
+- **Router guards:** Обновлены для извлечения code из URL и попытки восстановления сессии при переходе по параметризованным роутам.
+- **clearSession():** Теперь отправляет explicit_leave message перед disconnect и удаляет code из localStorage.
+
+### Technical
+- **Backend:** Grace period таймеры хранятся in-memory в ConnectionManager._grace_timers (Dict[str, asyncio.Task])
+- **Frontend:** Новые роуты: session-join-with-code, gm-lobby-with-code, gm-with-code, player-lobby-with-code, player-with-code
+- **Tests:** Добавлены тесты для explicit_leave (test_websocket.py) и grace period механизма (test_grace_period.py)
+
+---
+
 ## 2026-02-11 - Session Token Fix
 
 ### Fixed

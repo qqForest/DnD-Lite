@@ -176,17 +176,19 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         except asyncio.CancelledError:
             pass
 
-        # Mark player as left (soft delete)
+        # Start grace period for temporary disconnect (unless explicit leave)
         db = next(get_db())
         try:
             player = db.query(Player).filter(Player.token == token).first()
-            if player:
-                from datetime import datetime
-                player.left_at = datetime.utcnow()
-                db.commit()
-                logger.info(f"WS Marked player {player_name} as left")
+            if player and player.left_at is None:
+                # Temporary disconnect - start grace period
+                await manager.start_grace_period(token)
+                logger.info(f"WS Temporary disconnect for {player_name}, grace period started")
+            elif player:
+                # Explicit leave already marked
+                logger.info(f"WS Player {player_name} explicitly left")
         except Exception as e:
-            logger.error(f"WS Failed to mark player as left: {e}")
+            logger.error(f"WS Failed to start grace period: {e}")
         finally:
             db.close()
 

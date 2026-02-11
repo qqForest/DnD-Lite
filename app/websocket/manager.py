@@ -15,10 +15,17 @@ class ConnectionManager:
         # Map: player_token -> player_id
         self.token_to_player: Dict[str, int] = {}
         self._lock = asyncio.Lock()
+        # Grace period timers for temporary disconnects
+        self._grace_timers: Dict[str, asyncio.Task] = {}
+        self._grace_period = 300  # 5 minutes in seconds
 
     async def connect(self, websocket: WebSocket, token: str, player_id: int):
         """Accept a new WebSocket connection."""
         await websocket.accept()
+
+        # Cancel grace period if reconnecting
+        await self.cancel_grace_period(token)
+
         async with self._lock:
             # Handle reconnect: close old socket if token already exists
             old_ws = self.active_connections.get(token)
@@ -110,6 +117,66 @@ class ConnectionManager:
             {"type": event_type, "payload": payload},
             exclude_token=exclude_token
         )
+
+    async def _mark_as_left(self, token: str, db):
+        """Mark player as left after grace period expires."""
+        from app.models.player import Player
+        from datetime import datetime
+
+        player = db.query(Player).filter(Player.token == token).first()
+        if player and player.left_at is None:
+            player.left_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Grace period expired for player {player.name}, marked as left")
+
+    async def _grace_period_timer(self, token: str):
+        """Wait for grace period then mark player as left."""
+        from app.database import get_db
+
+        try:
+            logger.info(f"Grace period started for token {token[:8]}... ({self._grace_period}s)")
+            await asyncio.sleep(self._grace_period)
+
+            # Grace period expired, mark as left
+            db = next(get_db())
+            try:
+                await self._mark_as_left(token, db)
+            finally:
+                db.close()
+
+            # Clean up timer
+            async with self._lock:
+                self._grace_timers.pop(token, None)
+
+        except asyncio.CancelledError:
+            logger.info(f"Grace period cancelled for token {token[:8]}... (player reconnected)")
+            raise
+
+    async def start_grace_period(self, token: str):
+        """Start grace period timer for a disconnected player."""
+        # Cancel existing timer if any
+        if token in self._grace_timers:
+            self._grace_timers[token].cancel()
+            try:
+                await self._grace_timers[token]
+            except asyncio.CancelledError:
+                pass
+
+        # Start new timer
+        task = asyncio.create_task(self._grace_period_timer(token))
+        self._grace_timers[token] = task
+
+    async def cancel_grace_period(self, token: str):
+        """Cancel grace period timer (player reconnected)."""
+        if token in self._grace_timers:
+            self._grace_timers[token].cancel()
+            try:
+                await self._grace_timers[token]
+            except asyncio.CancelledError:
+                pass
+            async with self._lock:
+                self._grace_timers.pop(token, None)
+            logger.info(f"Grace period cancelled for token {token[:8]}...")
 
 
 # Global connection manager instance

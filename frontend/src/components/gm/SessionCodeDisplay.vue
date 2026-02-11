@@ -3,19 +3,25 @@
     <h2 class="title">Код сессии для подключения</h2>
     <div class="code-container">
       <div class="code">{{ sessionStore.code || '---' }}</div>
-      <button class="copy-button" @click="copyCode" :disabled="!sessionStore.code">
-        <Copy :size="20" />
-        <span>Копировать</span>
-      </button>
+      <div class="button-group">
+        <button class="copy-button" @click="copyCode" :disabled="!sessionStore.code">
+          <Copy :size="20" />
+          <span>Копировать код</span>
+        </button>
+        <button class="copy-button link-button" @click="copyShareableLink" :disabled="!sessionStore.code">
+          <Link :size="20" />
+          <span>Копировать ссылку</span>
+        </button>
+      </div>
     </div>
     <p class="instructions">
-      Поделитесь этим кодом с игроками. Они смогут подключиться к сессии, введя код на главной странице.
+      Поделитесь кодом или ссылкой с игроками. Они смогут подключиться к сессии, введя код или перейдя по ссылке.
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Copy } from 'lucide-vue-next'
+import { Copy, Link } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
 
@@ -24,7 +30,7 @@ const toast = useToast()
 
 async function copyCode() {
   if (!sessionStore.code) return
-  
+
   try {
     await navigator.clipboard.writeText(sessionStore.code)
     toast.success('Код скопирован в буфер обмена!')
@@ -39,6 +45,30 @@ async function copyCode() {
       toast.success('Код скопирован в буфер обмена!')
     } catch (err) {
       toast.error('Не удалось скопировать код')
+    }
+    document.body.removeChild(textArea)
+  }
+}
+
+async function copyShareableLink() {
+  if (!sessionStore.code) return
+
+  const link = `${window.location.origin}/session/${sessionStore.code}/join`
+
+  try {
+    await navigator.clipboard.writeText(link)
+    toast.success('Ссылка для приглашения скопирована!')
+  } catch (error) {
+    // Fallback для старых браузеров
+    const textArea = document.createElement('textarea')
+    textArea.value = link
+    document.body.appendChild(textArea)
+    textArea.select()
+    try {
+      document.execCommand('copy')
+      toast.success('Ссылка для приглашения скопирована!')
+    } catch (err) {
+      toast.error('Не удалось скопировать ссылку')
     }
     document.body.removeChild(textArea)
   }
@@ -64,10 +94,18 @@ async function copyCode() {
 
 .code-container {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-4);
   margin-bottom: var(--spacing-4);
+}
+
+.button-group {
+  display: flex;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .code {

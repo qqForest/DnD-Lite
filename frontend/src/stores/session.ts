@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Session, Player, SessionResponse, SessionJoinResponse } from '@/types/models'
 import { sessionApi } from '@/services/api'
 import { wsService } from '@/services/websocket'
+import router from '@/router'
 
 export const useSessionStore = defineStore('session', () => {
   const id = ref<number | null>(null)
@@ -51,6 +52,7 @@ export const useSessionStore = defineStore('session', () => {
     token.value = response.gm_token
     isGm.value = true
     localStorage.setItem('isGm', 'true')
+    localStorage.setItem('code', response.code)
 
     // Сохраняем пользовательские токены перед перезаписью сессионными
     saveUserTokens()
@@ -88,6 +90,7 @@ export const useSessionStore = defineStore('session', () => {
     playerId.value = response.player_id
     isGm.value = false
     localStorage.setItem('isGm', 'false')
+    localStorage.setItem('code', response.session_code)
     if (response.character_id) {
       characterId.value = response.character_id
     }
@@ -234,6 +237,10 @@ export const useSessionStore = defineStore('session', () => {
       // Redirect to dashboard
       router.push({ name: 'dashboard' })
     })
+
+    wsService.on('leave_confirmed', () => {
+      console.log('Leave confirmed by server')
+    })
   }
 
   function connectWebSocket() {
@@ -259,7 +266,40 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  async function tryRestoreSession(codeFromUrl?: string): Promise<boolean> {
+    const storedToken = localStorage.getItem('token')
+    const storedCode = localStorage.getItem('code')
+
+    if (!storedToken) return false
+    if (codeFromUrl && storedCode !== codeFromUrl.toUpperCase()) return false
+
+    token.value = storedToken
+    code.value = storedCode
+
+    try {
+      await fetchSessionState()
+      await connectWebSocket()
+      await fetchPlayers()
+      return true
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.log('Session no longer exists')
+      }
+      clearSession()
+      return false
+    }
+  }
+
   function clearSession() {
+    // Send explicit leave before disconnect
+    if (token.value && wsService.isConnected) {
+      wsService.send('explicit_leave', {})
+      // Small delay to allow message to send
+      setTimeout(() => wsService.disconnect(), 100)
+    } else {
+      wsService.disconnect()
+    }
+
     id.value = null
     playerId.value = null
     code.value = null
@@ -273,9 +313,9 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('playerId')
     localStorage.removeItem('isGm')
+    localStorage.removeItem('code')
     localStorage.removeItem('sessionAccessToken')
     localStorage.removeItem('sessionRefreshToken')
-    wsService.disconnect()
 
     // Восстанавливаем пользовательские токены вместо удаления
     const savedAccess = localStorage.getItem('userAccessToken')
@@ -319,6 +359,7 @@ export const useSessionStore = defineStore('session', () => {
     setReady,
     connectWebSocket,
     setupWebSocketHandlers,
+    tryRestoreSession,
     clearSession
   }
 })

@@ -141,6 +141,11 @@ class WebSocketService {
     }
   }
 
+  resetReconnectCounter() {
+    this.reconnectAttempts = 0
+    console.log('Reconnect counter reset')
+  }
+
   get isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN
   }

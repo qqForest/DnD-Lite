@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
@@ -72,6 +72,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import CharacterCarousel from '@/components/profile/CharacterCarousel.vue'
 
 const router = useRouter()
+const route = useRoute()
 const profileStore = useProfileStore()
 const sessionStore = useSessionStore()
 const authStore = useAuthStore()
@@ -102,7 +103,10 @@ async function handleJoin() {
       playerName,
       selectedCharacterId.value!
     )
-    router.push({ name: 'player-lobby' })
+    router.push({
+      name: 'player-lobby-with-code',
+      params: { code: sessionStore.code }
+    })
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Не удалось присоединиться к сессии. Проверьте код комнаты.'
     loading.value = false
@@ -111,6 +115,12 @@ async function handleJoin() {
 
 onMounted(() => {
   profileStore.fetchCharacters()
+
+  // Pre-fill code from URL if present
+  const codeFromUrl = route.params.code as string | undefined
+  if (codeFromUrl) {
+    sessionCode.value = codeFromUrl.toUpperCase()
+  }
 })
 </script>
 

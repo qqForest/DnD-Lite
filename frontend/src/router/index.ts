@@ -37,6 +37,37 @@ const router = createRouter({
       component: () => import('@/views/JoinSessionView.vue'),
       meta: { requiresUser: true }
     },
+    // Shareable session routes with code parameter
+    {
+      path: '/session/:code/join',
+      name: 'session-join-with-code',
+      component: () => import('@/views/JoinSessionView.vue'),
+      meta: { requiresUser: true }
+    },
+    {
+      path: '/session/:code/gm/lobby',
+      name: 'gm-lobby-with-code',
+      component: () => import('@/views/GMLobbyView.vue'),
+      meta: { requiresAuth: true, role: 'gm' }
+    },
+    {
+      path: '/session/:code/gm',
+      name: 'gm-with-code',
+      component: () => import('@/views/GMView.vue'),
+      meta: { requiresAuth: true, role: 'gm' }
+    },
+    {
+      path: '/session/:code/play/lobby',
+      name: 'player-lobby-with-code',
+      component: () => import('@/views/PlayerLobbyView.vue'),
+      meta: { requiresAuth: true, role: 'player' }
+    },
+    {
+      path: '/session/:code/play',
+      name: 'player-with-code',
+      component: () => import('@/views/PlayerView.vue'),
+      meta: { requiresAuth: true, role: 'player' }
+    },
     {
       path: '/profile/characters/create',
       name: 'create-character',
@@ -104,9 +135,31 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
+  // Extract code from URL if present
+  const codeFromUrl = to.params.code as string | undefined
+
   if (to.meta.requiresAuth && !sessionStore.isAuthenticated) {
-    next({ name: 'dashboard' })
-    return
+    // Try to restore session from localStorage + URL code
+    if (codeFromUrl) {
+      const restored = await sessionStore.tryRestoreSession(codeFromUrl)
+      if (!restored) {
+        next({ name: 'session-join-with-code', params: { code: codeFromUrl } })
+        return
+      }
+    } else {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  // Sync code from URL to store if needed
+  if (codeFromUrl && sessionStore.code !== codeFromUrl.toUpperCase()) {
+    await sessionStore.fetchSessionState()
+    if (sessionStore.code !== codeFromUrl.toUpperCase()) {
+      sessionStore.clearSession()
+      next({ name: 'dashboard' })
+      return
+    }
   }
 
   // Загружаем состояние сессии если нужно проверить session_started
