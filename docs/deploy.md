@@ -9,13 +9,44 @@
 ---
 
 ## Первичная установка на VPS
+
+### 1. Клонирование репозитория
 ```bash
-# Клонирование репозитория
 git clone https://github.com/qqForest/DnD-Lite.git
 cd DnD-Lite
+```
 
-# Запуск сборки
+### 2. Настройка .env файла (ОБЯЗАТЕЛЬНО!)
+
+```bash
+# Скопировать пример
+cp .env.example .env
+
+# Сгенерировать уникальные ключи
+python3 -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))"
+python3 -c "import secrets; print('JWT_SECRET_KEY=' + secrets.token_hex(32))"
+
+# Отредактировать .env и вставить сгенерированные ключи
+nano .env
+```
+
+**ВАЖНО:** Замените `change-me-in-production` на сгенерированные ключи! Иначе авторизация будет работать неправильно.
+
+### 3. Запуск сборки
+```bash
 sudo docker compose up -d --build
+```
+
+### 4. Проверка
+```bash
+# Проверить что контейнер запущен
+sudo docker compose ps
+
+# Проверить логи
+sudo docker compose logs -f app
+
+# Диагностика проблем
+bash scripts/diagnose-vps.sh
 ```
 
 ---
@@ -40,6 +71,29 @@ sudo docker compose up -d --build
 # Очистка старых неиспользуемых образов (чтобы не забивать диск)
 sudo docker image prune -f
 ```
+
+---
+
+---
+
+## Диагностика проблем
+
+Если что-то не работает после деплоя:
+
+```bash
+# Автоматическая диагностика
+bash scripts/diagnose-vps.sh
+
+# Или вручную проверить логи
+sudo docker compose logs -f app --tail=100
+```
+
+**Типичные проблемы:**
+1. **Разлогинивает после перезагрузки** → Проверьте что SECRET_KEY и JWT_SECRET_KEY установлены в .env
+2. **Создание сессии не работает** → Проверьте логи на ошибки: `sudo docker compose logs app`
+3. **401 Unauthorized ошибки** → Очистите localStorage в браузере и перелогиньтесь
+
+Подробнее: [docs/troubleshooting-vps.md](./troubleshooting-vps.md)
 
 ---
 
