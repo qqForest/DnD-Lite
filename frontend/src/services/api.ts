@@ -45,7 +45,18 @@ const api: AxiosInstance = axios.create({
 
 // Request interceptor: Attach Token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
+  // For user-specific endpoints, use user tokens instead of session tokens
+  const isUserEndpoint = config.url?.includes('/me/') || config.url?.includes('/users/')
+
+  let token: string | null
+  if (isUserEndpoint) {
+    // Try user tokens first, fallback to session tokens
+    token = localStorage.getItem('userAccessToken') || localStorage.getItem('accessToken')
+  } else {
+    // For all other endpoints, use current access token (session or user)
+    token = localStorage.getItem('accessToken')
+  }
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -91,7 +102,12 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const refreshToken = localStorage.getItem('refreshToken')
+      // Determine which refresh token to use based on request URL
+      const isUserEndpoint = originalRequest.url?.includes('/me/') || originalRequest.url?.includes('/users/')
+      const refreshToken = isUserEndpoint
+        ? (localStorage.getItem('userRefreshToken') || localStorage.getItem('refreshToken'))
+        : localStorage.getItem('refreshToken')
+
       if (!refreshToken) {
         // No refresh token, logout
         logoutAndRedirect()
@@ -100,8 +116,6 @@ api.interceptors.response.use(
 
       try {
         // Call refresh endpoint
-        // Start a new axios instance to avoid interceptors? Or just use axios directly.
-        // We need to send { access_token: "", refresh_token: ..., token_type: "bearer" }
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
         const url = `${baseUrl.replace(/\/$/, '')}/auth/refresh`
 
@@ -113,8 +127,14 @@ api.interceptors.response.use(
 
         const { access_token, refresh_token: newRefresh } = response.data
 
-        localStorage.setItem('accessToken', access_token)
-        localStorage.setItem('refreshToken', newRefresh)
+        // Update the appropriate token storage
+        if (isUserEndpoint) {
+          localStorage.setItem('userAccessToken', access_token)
+          localStorage.setItem('userRefreshToken', newRefresh)
+        } else {
+          localStorage.setItem('accessToken', access_token)
+          localStorage.setItem('refreshToken', newRefresh)
+        }
 
         // Update headers
         api.defaults.headers.common['Authorization'] = 'Bearer ' + access_token
