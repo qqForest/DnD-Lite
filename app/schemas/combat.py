@@ -35,9 +35,14 @@ class CombatAction(BaseModel):
 
 # Initiative schemas
 class InitiativeEntry(BaseModel):
-    """Entry in the initiative list."""
+    """Entry in the initiative list (for players or NPCs).
+
+    For players: player_id is the actual ID, character_id is optional
+    For NPCs: player_id is 0 (sentinel), character_id identifies the NPC
+    """
     player_id: int
     player_name: str
+    character_id: Optional[int] = None
     character_name: Optional[str] = None
     roll: Optional[int] = None
     is_npc: bool = False

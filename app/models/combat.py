@@ -43,15 +43,21 @@ class CombatParticipant(Base):
 
 
 class InitiativeRoll(Base):
-    """Stores individual initiative rolls for players in combat."""
+    """Stores individual initiative rolls for players and NPCs in combat.
+
+    For player initiative: player_id is set, character_id is None
+    For NPC initiative: character_id is set, player_id is None
+    """
     __tablename__ = "initiative_rolls"
 
     id = Column(Integer, primary_key=True, index=True)
     combat_id = Column(Integer, ForeignKey("combats.id"), nullable=False)
-    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=True)
+    character_id = Column(Integer, ForeignKey("characters.id", ondelete="CASCADE"), nullable=True)
     roll = Column(Integer, nullable=False)
     rolled_at = Column(DateTime, default=datetime.utcnow)
 
     combat = relationship("Combat", back_populates="initiative_rolls")
     player = relationship("Player")
+    character = relationship("Character")
 

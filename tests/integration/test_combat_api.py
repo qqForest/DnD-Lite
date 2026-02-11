@@ -182,3 +182,183 @@ class TestGetCombatState:
         assert resp.status_code == 200
         data = resp.json()
         assert data["is_active"] is True
+
+
+@pytest.mark.asyncio
+class TestNPCInitiative:
+    """Tests for NPC initiative rolls."""
+
+    async def test_roll_initiative_for_npc(self, client):
+        """GM can roll initiative for an NPC."""
+        _, gm_h, _, player_h, _ = await _setup_combat_session(client)
+
+        # Create NPC (character belonging to GM)
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            npc_resp = await client.post("/api/characters", json={
+                "name": "Goblin",
+                "max_hp": 7,
+                "dexterity": 14,
+            }, headers=gm_h)
+        npc_data = npc_resp.json()
+
+        # Start combat
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post("/api/combat/start", headers=gm_h)
+
+        # Roll initiative for NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post(
+                "/api/combat/initiative/npc",
+                params={"character_id": npc_data["id"]},
+                headers=gm_h
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "roll" in data
+        assert "character_name" in data
+        assert data["character_name"] == "Goblin"
+        # Roll should be d20 + dex modifier (14 -> +2), so between 3 and 22
+        assert 3 <= data["roll"] <= 22
+
+    async def test_roll_initiative_for_npc_not_gm(self, client):
+        """Only GM can roll initiative for NPCs."""
+        _, gm_h, _, player_h, _ = await _setup_combat_session(client)
+
+        # Create NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            npc_resp = await client.post("/api/characters", json={
+                "name": "Goblin", "max_hp": 7,
+            }, headers=gm_h)
+        npc_data = npc_resp.json()
+
+        # Start combat
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post("/api/combat/start", headers=gm_h)
+
+        # Player tries to roll initiative for NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post(
+                "/api/combat/initiative/npc",
+                params={"character_id": npc_data["id"]},
+                headers=player_h
+            )
+
+        assert resp.status_code == 403
+
+    async def test_roll_initiative_for_npc_already_rolled(self, client):
+        """Cannot roll initiative twice for same NPC."""
+        _, gm_h, _, _, _ = await _setup_combat_session(client)
+
+        # Create NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            npc_resp = await client.post("/api/characters", json={
+                "name": "Goblin", "max_hp": 7,
+            }, headers=gm_h)
+        npc_data = npc_resp.json()
+
+        # Start combat
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post("/api/combat/start", headers=gm_h)
+
+        # Roll initiative once
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post(
+                "/api/combat/initiative/npc",
+                params={"character_id": npc_data["id"]},
+                headers=gm_h
+            )
+
+        # Try to roll again
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post(
+                "/api/combat/initiative/npc",
+                params={"character_id": npc_data["id"]},
+                headers=gm_h
+            )
+
+        assert resp.status_code == 400
+
+    async def test_initiative_list_with_npcs(self, client):
+        """Initiative list includes both players and NPCs."""
+        _, gm_h, _, player_h, _ = await _setup_combat_session(client)
+
+        # Create NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            npc_resp = await client.post("/api/characters", json={
+                "name": "Goblin", "max_hp": 7, "dexterity": 14,
+            }, headers=gm_h)
+        npc_data = npc_resp.json()
+
+        # Start combat
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock), \
+             patch("app.websocket.manager.manager.send_personal", new_callable=AsyncMock):
+            await client.post("/api/combat/start", headers=gm_h)
+
+            # Player rolls
+            await client.post("/api/combat/initiative", headers=player_h)
+
+        # GM rolls for NPC
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post(
+                "/api/combat/initiative/npc",
+                params={"character_id": npc_data["id"]},
+                headers=gm_h
+            )
+
+        # Get initiative list
+        resp = await client.get("/api/combat/initiative", headers=gm_h)
+        assert resp.status_code == 200
+
+        entries = resp.json()["entries"]
+        assert len(entries) == 2  # 1 player + 1 NPC
+
+        # Find NPC entry
+        npc_entry = next((e for e in entries if e["is_npc"]), None)
+        assert npc_entry is not None
+        assert npc_entry["character_name"] == "Goblin"
+        assert npc_entry["character_id"] == npc_data["id"]
+        assert npc_entry["roll"] is not None
+
+        # Find player entry
+        player_entry = next((e for e in entries if not e["is_npc"]), None)
+        assert player_entry is not None
+        assert player_entry["roll"] is not None
+
+    async def test_npc_initiative_with_dex_modifier(self, client):
+        """NPC initiative includes dexterity modifier."""
+        _, gm_h, _, _, _ = await _setup_combat_session(client)
+
+        # Create NPC with high dexterity (18 -> +4 modifier)
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            npc_resp = await client.post("/api/characters", json={
+                "name": "Fast Goblin",
+                "max_hp": 7,
+                "dexterity": 18,
+            }, headers=gm_h)
+        npc_data = npc_resp.json()
+
+        # Start combat
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            await client.post("/api/combat/start", headers=gm_h)
+
+        # Roll initiative for NPC multiple times to check modifier is applied
+        rolls = []
+        for i in range(3):
+            # End combat and start new one for fresh roll
+            if i > 0:
+                with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+                    await client.post("/api/combat/end", headers=gm_h)
+                    await client.post("/api/combat/start", headers=gm_h)
+
+            with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+                resp = await client.post(
+                    "/api/combat/initiative/npc",
+                    params={"character_id": npc_data["id"]},
+                    headers=gm_h
+                )
+            rolls.append(resp.json()["roll"])
+
+        # All rolls should be between 5 and 24 (d20 + 4 modifier)
+        for roll in rolls:
+            assert 5 <= roll <= 24

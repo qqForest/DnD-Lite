@@ -12,6 +12,7 @@ from app.schemas.combat import (
 )
 from app.services.combat import CombatService
 from app.services.dice import DiceService
+from app.services.modifiers import ModifierService
 from app.websocket.manager import manager
 from app.core.auth import get_current_player
 
@@ -67,19 +68,20 @@ def build_combat_response(combat: Combat) -> dict:
 
 
 def build_initiative_list(db: DBSession, combat: Combat) -> List[InitiativeEntry]:
-    """Build sorted initiative list for combat."""
-    # Get all players in session
+    """Build sorted initiative list for combat (players + NPCs)."""
+    entries = []
+
+    # Get all players in session (non-GM)
     players = db.query(Player).filter(
         Player.session_id == combat.session_id,
         Player.is_gm == False
     ).all()
 
-    # Get existing initiative rolls
-    rolls = {r.player_id: r.roll for r in combat.initiative_rolls}
+    # Get player initiative rolls (those with player_id)
+    player_rolls = {r.player_id: r.roll for r in combat.initiative_rolls if r.player_id}
 
-    entries = []
+    # Add player entries
     for player in players:
-        # Try to get character name
         character = db.query(Character).filter(
             Character.player_id == player.id
         ).first()
@@ -87,12 +89,28 @@ def build_initiative_list(db: DBSession, combat: Combat) -> List[InitiativeEntry
         entries.append(InitiativeEntry(
             player_id=player.id,
             player_name=player.name,
+            character_id=character.id if character else None,
             character_name=character.name if character else None,
-            roll=rolls.get(player.id),
+            roll=player_rolls.get(player.id),
             is_npc=False
         ))
 
-    # Sort: players with rolls first (descending), then players without rolls
+    # Get NPC initiative rolls (those with character_id)
+    npc_rolls = [r for r in combat.initiative_rolls if r.character_id]
+
+    # Add NPC entries
+    for roll in npc_rolls:
+        character = roll.character
+        entries.append(InitiativeEntry(
+            player_id=0,  # Sentinel value for NPCs
+            player_name="NPC",
+            character_id=character.id,
+            character_name=character.name,
+            roll=roll.roll,
+            is_npc=True
+        ))
+
+    # Sort: entries with rolls first (descending by roll), then entries without rolls
     entries.sort(key=lambda e: (e.roll is None, -(e.roll or 0)))
     return entries
 
@@ -193,6 +211,61 @@ async def roll_initiative(
         })
 
     return InitiativeRollResponse(roll=roll, player_name=current_player.name)
+
+
+@router.post("/initiative/npc")
+async def roll_initiative_for_npc(
+    character_id: int,
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
+    """GM rolls initiative for an NPC. Broadcasts to all players."""
+    require_gm(current_player)
+
+    combat = get_active_combat(db, current_player.session_id)
+
+    # Verify character is an NPC belonging to GM in this session
+    character = db.query(Character).join(Player).filter(
+        Character.id == character_id,
+        Player.session_id == current_player.session_id,
+        Player.is_gm == True
+    ).first()
+
+    if not character:
+        raise HTTPException(status_code=404, detail="NPC not found in this session")
+
+    # Check if already rolled
+    existing = db.query(InitiativeRoll).filter(
+        InitiativeRoll.combat_id == combat.id,
+        InitiativeRoll.character_id == character_id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="NPC already rolled initiative")
+
+    # Roll d20 + dex modifier
+    base_roll = DiceService.roll_initiative()
+    dex_modifier = ModifierService.calculate_initiative_modifier(character)
+    total_roll = base_roll + dex_modifier
+
+    # Save roll
+    initiative_roll = InitiativeRoll(
+        combat_id=combat.id,
+        character_id=character_id,
+        roll=total_roll
+    )
+    db.add(initiative_roll)
+    db.commit()
+
+    # Broadcast to all players
+    await manager.broadcast_event("initiative_rolled", {
+        "character_id": character_id,
+        "character_name": character.name,
+        "roll": total_roll,
+        "is_npc": True
+    })
+
+    return {"roll": total_roll, "character_name": character.name}
 
 
 @router.get("/initiative", response_model=InitiativeListResponse)
