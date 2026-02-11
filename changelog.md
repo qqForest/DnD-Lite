@@ -1,3 +1,82 @@
+## 2026-02-11 - Поддержка аватаров для NPC токенов на карте
+
+**Проблема:**
+- При импорте NPC из библиотеки пользователя (UserCharacter) в сессию **не копировался** `avatar_url`
+- Токены NPC на карте отображались как простые цветные круги, хотя у NPC был сохранён аватар в библиотеке
+
+**Решение:**
+- Добавлено поле `avatar_url` (и `appearance`) в схемы `CharacterCreate` и `CharacterUpdate`
+- Обновлён endpoint `/api/characters` POST — теперь сохраняет `avatar_url` и `appearance` при создании персонажа
+- Обновлён `ImportNpcModal.vue` — копирует `avatar_url`, `appearance` и `armor_class` из UserCharacter при импорте NPC
+- Добавлен тест `test_avatar_url_preserved_on_create` для проверки сохранения аватара
+
+**Результат:**
+- Токены NPC на карте теперь отображают их аватары (как и токены персонажей игроков)
+- При импорте NPC из библиотеки все данные (включая аватар и внешность) корректно копируются
+
+**Затронутые файлы:**
+- `app/schemas/character.py` — добавлено поле `avatar_url` в CharacterCreate/Update
+- `app/api/characters.py` — копируются `avatar_url` и `appearance` при создании
+- `frontend/src/components/gm/ImportNpcModal.vue` — передаёт все поля включая аватар
+- `frontend/src/types/models.ts` — обновлены типы CharacterCreate/Update
+- `tests/integration/test_characters_api.py` — новый тест для avatar_url
+
+**Примечание:** Для существующих NPC нужно пересоздать их импортом из библиотеки, чтобы получить аватары.
+
+---
+
+## 2026-02-11 - HOTFIX: Исправлена ошибка 500 при броске инициативы для NPC
+
+**Проблема:**
+- При попытке бросить инициативу для NPC GM получал ошибку 500: `NOT NULL constraint failed: initiative_rolls.player_id`
+- Таблица `initiative_rolls` имела неправильную схему — столбец `player_id` был NOT NULL, хотя модель определяла его как nullable
+
+**Решение:**
+- Добавлена миграция `_fix_initiative_rolls_nullable()` в `app/migrations.py`, которая пересоздаёт таблицу с правильной схемой
+- Теперь `player_id` корректно определён как nullable, что позволяет создавать записи инициативы для NPC (где `player_id=NULL`, используется только `character_id`)
+- Миграция безопасна для повторного запуска — проверяет схему перед применением и сохраняет существующие данные
+
+**Затронутые файлы:**
+- `app/migrations.py` — новая функция миграции для пересоздания таблицы
+- `app/models/combat.py` — модель уже была правильной (player_id nullable=True)
+
+**Тесты:** Все 234 теста прошли успешно ✅
+
+---
+
+## 2026-02-11 - Интеграция NPC в систему токенов карты и боя
+
+### Added
+- **NPC на карте:** AddTokenModal теперь имеет три вкладки (Персонажи / NPC / Произвольный), NPC размещаются как character-токены с полной привязкой к Character
+- **Инициатива NPC:** GM может бросать инициативу за NPC через новый endpoint POST /combat/initiative/npc (d20 + dex modifier)
+- **CombatSetupModal:** Новая модалка для выбора NPC при старте боя, автоматические броски инициативы за выбранных NPC
+- **ПКМ меню:** Опция "Добавить в бой" в контекстном меню токенов NPC на карте (только во время активного боя)
+- **InitiativeBar:** Визуальная индикация NPC (красная полоса слева, бейдж "[NPC]")
+- **Backend:** Endpoint POST /combat/initiative/npc для броска инициативы за NPC (с проверкой прав GM)
+- **Тесты:** 5 новых интеграционных тестов для NPC инициативы (test_roll_initiative_for_npc, test_roll_initiative_for_npc_not_gm, test_roll_initiative_for_npc_already_rolled, test_initiative_list_with_npcs, test_npc_initiative_with_dex_modifier)
+
+### Changed
+- **InitiativeRoll модель:** Добавлено поле character_id, player_id стал nullable (игроки или NPC)
+- **InitiativeEntry схема:** Добавлено поле character_id для идентификации NPC в списке инициативы
+- **build_initiative_list:** Теперь включает NPC с character_id, сортирует игроков и NPC вместе по убыванию инициативы
+- **Combat store:** Новый метод rollInitiativeForNpc, обновлён WebSocket handler для initiative_rolled (поддержка is_npc и character_id)
+- **AddTokenModal:** Персонажи игроков и NPC теперь отображаются на отдельных вкладках с визуальной индикацией
+- **CombatTab:** Кнопка "Начать бой" теперь открывает CombatSetupModal вместо немедленного старта боя
+
+### Technical
+- **Миграция:** Добавлена колонка character_id в initiative_rolls (nullable, foreign key на characters.id)
+- **WebSocket:** Событие initiative_rolled включает is_npc и character_id для NPC
+- **Frontend типы:** InitiativeEntry обновлён с полем character_id для идентификации NPC
+- **API метод:** combatApi.rollInitiativeForNpc(characterId) для клиентских вызовов
+
+### Benefits
+- NPC полностью интегрированы в игровую механику (карта + бой + инициатива)
+- GM может управлять порядком действий NPC в бою
+- HP sync работает для NPC токенов на карте
+- Упрощён workflow GM: выбор NPC → автобросок инициативы при старте боя
+
+---
+
 ## 2026-02-11 - Удаление старых роутов без :code
 
 ### Removed
@@ -76,7 +155,7 @@
 
 ---
 
-2026-02-11: Улучшено UX управления картой на мобильных (10.1, 10.3)
+2026-02-11: Улучшено UX управления картой на мобильных (10.1, 10.3) + hotfix
   - **Индикатор масштаба (10.1):**
     - При изменении масштаба (pinch, wheel, кнопки zoom) показывается индикатор с процентами в центре экрана
     - Автоматически скрывается через 800ms
@@ -84,6 +163,12 @@
   - **Ограничение границ карты (10.3):**
     - Пользователи больше не могут выйти за границы карты и увидеть пустоту
     - Функция clampStagePosition() ограничивает позицию stage после zoom/drag/pinch
+    - **HOTFIX:** Исправлена логика clampStagePosition для карт меньше viewport
+      - Теперь правильно вычисляет minX/maxX и minY/maxY для обоих случаев (карта > viewport и карта < viewport)
+      - Карта не может уходить за границы в любую сторону
+  - **HOTFIX:** Возвращён stage drag на мобильных устройствах
+    - Однопальцевое управление картой теперь работает на мобильных
+    - Конфликт с токенами предотвращён через cancelBubble в MapToken (уже реализовано в Phase 2)
     - Работает с картами любого размера (от 1000x1000 до 10000x4000)
     - Применяется в handleWheel, handlePinchMove, handleDragEnd, zoomToPoint, fitToScreen
   - Улучшена стабильность управления на iOS и Android
