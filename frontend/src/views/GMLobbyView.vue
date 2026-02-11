@@ -145,9 +145,16 @@ async function handleDeleteSession() {
   try {
     const { sessionApi } = await import('@/services/api')
     await sessionApi.deleteSession()
-    // WebSocket handler will handle redirect
+
+    // Close modal
+    showDeleteModal.value = false
+
+    // Clear session and redirect immediately
+    sessionStore.clearSession()
+    router.push({ name: 'home' })
   } catch (error) {
     console.error('Failed to delete session:', error)
+    showDeleteModal.value = false
   }
 }
 
