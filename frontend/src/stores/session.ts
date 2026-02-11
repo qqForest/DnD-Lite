@@ -18,6 +18,18 @@ export const useSessionStore = defineStore('session', () => {
   const sessionStarted = ref<boolean>(false)
   const characterId = ref<number | null>(null)
 
+  // Восстанавливаем session tokens если пользователь в сессии
+  if (token.value) {
+    const sessionAccessToken = localStorage.getItem('sessionAccessToken')
+    const sessionRefreshToken = localStorage.getItem('sessionRefreshToken')
+    if (sessionAccessToken && sessionRefreshToken) {
+      localStorage.setItem('accessToken', sessionAccessToken)
+      localStorage.setItem('refreshToken', sessionRefreshToken)
+      accessToken.value = sessionAccessToken
+      refreshToken.value = sessionRefreshToken
+    }
+  }
+
   const isAuthenticated = computed(() => !!token.value)
 
   const currentPlayer = computed(() => {
@@ -43,7 +55,12 @@ export const useSessionStore = defineStore('session', () => {
     // Сохраняем пользовательские токены перед перезаписью сессионными
     saveUserTokens()
 
+    // Сохраняем session tokens отдельно для восстановления
     localStorage.setItem('token', response.gm_token)
+    localStorage.setItem('sessionAccessToken', response.access_token)
+    localStorage.setItem('sessionRefreshToken', response.refresh_token)
+
+    // Устанавливаем session tokens как активные
     localStorage.setItem('accessToken', response.access_token)
     localStorage.setItem('refreshToken', response.refresh_token)
     accessToken.value = response.access_token
@@ -77,10 +94,15 @@ export const useSessionStore = defineStore('session', () => {
     // Сохраняем пользовательские токены перед перезаписью сессионными
     saveUserTokens()
 
+    // Сохраняем session tokens отдельно для восстановления
     localStorage.setItem('token', response.token)
+    localStorage.setItem('sessionAccessToken', response.access_token)
+    localStorage.setItem('sessionRefreshToken', response.refresh_token)
+    localStorage.setItem('playerId', response.player_id.toString())
+
+    // Устанавливаем session tokens как активные
     localStorage.setItem('accessToken', response.access_token)
     localStorage.setItem('refreshToken', response.refresh_token)
-    localStorage.setItem('playerId', response.player_id.toString())
     accessToken.value = response.access_token
     refreshToken.value = response.refresh_token
 
@@ -251,6 +273,8 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('playerId')
     localStorage.removeItem('isGm')
+    localStorage.removeItem('sessionAccessToken')
+    localStorage.removeItem('sessionRefreshToken')
     wsService.disconnect()
 
     // Восстанавливаем пользовательские токены вместо удаления

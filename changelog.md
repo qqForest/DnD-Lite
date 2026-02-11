@@ -1,3 +1,10 @@
+## 2026-02-11 - Session Token Fix
+
+### Fixed
+- **401 при завершении сессии:** Исправлена проблема с токенами авторизации. Session access tokens теперь сохраняются отдельно (`sessionAccessToken/sessionRefreshToken`) и корректно восстанавливаются при перезагрузке страницы. DELETE /session теперь всегда использует правильный session token вместо user token.
+
+---
+
 ## 2026-02-11 - Session Management & Cleanup
 
 ### Added
