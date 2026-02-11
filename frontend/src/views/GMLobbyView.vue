@@ -12,8 +12,8 @@
               ○ Отключено
             </span>
           </div>
-          <BaseButton variant="ghost" size="sm" @click="showLeaveModal = true">
-            Покинуть
+          <BaseButton variant="danger" size="sm" @click="showDeleteModal = true">
+            Завершить сессию
           </BaseButton>
           <StartGameButton />
         </div>
@@ -80,12 +80,12 @@
     />
 
     <ConfirmModal
-      v-model="showLeaveModal"
-      title="Покинуть сессию?"
-      message="Вы уверены, что хотите покинуть текущую сессию?"
-      confirm-text="Покинуть"
+      v-model="showDeleteModal"
+      title="Завершить сессию?"
+      message="Это отключит всех игроков и удалит сессию навсегда."
+      confirm-text="Завершить"
       :danger="true"
-      @confirm="handleLeave"
+      @confirm="handleDeleteSession"
     />
 
     <!-- Roll Result Modal -->
@@ -125,7 +125,7 @@ const mapStore = useMapStore()
 const diceStore = useDiceStore()
 
 const showImportMapModal = ref(false)
-const showLeaveModal = ref(false)
+const showDeleteModal = ref(false)
 
 useWebSocket()
 
@@ -141,9 +141,14 @@ async function handleSetActiveMap(mapId: string) {
   }
 }
 
-function handleLeave() {
-  sessionStore.clearSession()
-  router.push({ name: 'profile' })
+async function handleDeleteSession() {
+  try {
+    const { sessionApi } = await import('@/services/api')
+    await sessionApi.deleteSession()
+    // WebSocket handler will handle redirect
+  } catch (error) {
+    console.error('Failed to delete session:', error)
+  }
 }
 
 onMounted(async () => {

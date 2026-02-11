@@ -236,3 +236,129 @@ class TestRefreshToken:
         })
         assert resp.status_code == 200
         assert "access_token" in resp.json()
+
+
+@pytest.mark.asyncio
+class TestPlayerDisconnect:
+    async def test_player_marked_as_left_on_disconnect(self, client, db):
+        """Player.left_at is set when marked as left"""
+        from app.models.player import Player
+        from datetime import datetime
+
+        # Create session + player
+        resp, _, _ = await create_session_with_user(client)
+        session_data = resp.json()
+        code = session_data["code"]
+
+        user2 = await register_user(client, "player1", "Player 1")
+        player_h = {"Authorization": f"Bearer {user2['access_token']}"}
+        join_resp = await client.post("/api/session/join",
+            json={"code": code, "name": "TestPlayer"}, headers=player_h)
+        join_data = join_resp.json()
+        player_id = join_data["player_id"]
+
+        # Simulate disconnect by setting left_at
+        player = db.query(Player).filter(Player.id == player_id).first()
+        player.left_at = datetime.utcnow()
+        db.commit()
+
+        # Verify player not in active list
+        gm_headers = {"Authorization": f"Bearer {session_data['access_token']}"}
+        players_resp = await client.get("/api/session/players", headers=gm_headers)
+        players = players_resp.json()
+        assert all(p["id"] != player_id for p in players)
+
+    async def test_player_can_reconnect_after_left(self, client, db):
+        """Player with left_at can reconnect using same name"""
+        from app.models.player import Player
+        from datetime import datetime
+
+        # Create session
+        resp, _, _ = await create_session_with_user(client)
+        session_data = resp.json()
+        code = session_data["code"]
+
+        user2 = await register_user(client, "player1", "Player 1")
+        player_h = {"Authorization": f"Bearer {user2['access_token']}"}
+
+        # Join first time
+        join_resp = await client.post("/api/session/join",
+            json={"code": code, "name": "TestPlayer"}, headers=player_h)
+        join_data = join_resp.json()
+        player_id = join_data["player_id"]
+
+        # Simulate disconnect
+        player = db.query(Player).filter(Player.id == player_id).first()
+        player.left_at = datetime.utcnow()
+        db.commit()
+
+        # Reconnect with same name
+        reconnect_resp = await client.post("/api/session/join",
+            json={"code": code, "name": "TestPlayer"}, headers=player_h)
+        assert reconnect_resp.status_code == 200
+        reconnect_data = reconnect_resp.json()
+
+        # Verify same player_id returned
+        assert reconnect_data["player_id"] == player_id
+
+        # Verify left_at is cleared
+        db.refresh(player)
+        assert player.left_at is None
+
+
+@pytest.mark.asyncio
+class TestDeleteSession:
+    async def test_gm_can_delete_session(self, client, db):
+        """GM deletes session, cascades to all entities"""
+        from app.models.session import Session
+        from app.models.player import Player
+        from app.models.character import Character
+
+        # Create session
+        resp, _, _ = await create_session_with_user(client)
+        session_data = resp.json()
+        code = session_data["code"]
+        gm_session_token = session_data["access_token"]  # Use session token, not user token
+        gm_headers = {"Authorization": f"Bearer {gm_session_token}"}
+
+        # Add player with character
+        user2 = await register_user(client, "player1", "Player 1")
+        player_h = {"Authorization": f"Bearer {user2['access_token']}"}
+        await client.post("/api/session/join",
+            json={"code": code, "name": "TestPlayer"}, headers=player_h)
+
+        # Get session_id
+        session = db.query(Session).filter(Session.code == code).first()
+        session_id = session.id
+
+        # Delete session
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            delete_resp = await client.delete("/api/session", headers=gm_headers)
+        assert delete_resp.status_code == 200
+
+        # Verify session deleted
+        session = db.query(Session).filter(Session.id == session_id).first()
+        assert session is None
+
+        # Verify cascaded deletion
+        players = db.query(Player).filter(Player.session_id == session_id).all()
+        assert len(players) == 0
+
+    async def test_player_cannot_delete_session(self, client):
+        """Non-GM cannot delete session"""
+        # Create session
+        resp, _, _ = await create_session_with_user(client)
+        session_data = resp.json()
+        code = session_data["code"]
+
+        # Join as player
+        user2 = await register_user(client, "player1", "Player 1")
+        player_h = {"Authorization": f"Bearer {user2['access_token']}"}
+        join_resp = await client.post("/api/session/join",
+            json={"code": code, "name": "TestPlayer"}, headers=player_h)
+        join_data = join_resp.json()
+        player_token_header = {"Authorization": f"Bearer {join_data['access_token']}"}
+
+        # Try delete as player → expect 403
+        delete_resp = await client.delete("/api/session", headers=player_token_header)
+        assert delete_resp.status_code == 403

@@ -180,6 +180,11 @@ export const sessionApi = {
   toggleMovement: async (playerId: number): Promise<{ player_id: number; can_move: boolean }> => {
     const response = await api.patch<{ player_id: number; can_move: boolean }>(`/players/${playerId}/movement`)
     return response.data
+  },
+
+  deleteSession: async (): Promise<{ message: string; session_code: string }> => {
+    const response = await api.delete<{ message: string; session_code: string }>('/session')
+    return response.data
   }
 }
 

@@ -74,6 +74,11 @@ MIGRATIONS = [
         "column": "armor_class",
         "sql": "ALTER TABLE user_characters ADD COLUMN armor_class INTEGER DEFAULT 10",
     },
+    {
+        "table": "players",
+        "column": "left_at",
+        "sql": "ALTER TABLE players ADD COLUMN left_at DATETIME DEFAULT NULL",
+    },
 ]
 
 

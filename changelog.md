@@ -1,3 +1,31 @@
+## 2026-02-11 - Session Management & Cleanup
+
+### Added
+- **Player soft delete:** Игроки теперь помечаются как "left" (left_at timestamp) вместо удаления из БД при disconnect
+- **Reconnect logic:** Игроки могут переподключаться к сессии после disconnect, используя то же имя
+- **DELETE /api/session endpoint:** GM может завершить сессию (удаляет сессию и отключает всех игроков)
+- **Автоматическая очистка старых сессий:** При создании новой сессии и при старте сервера автоматически удаляются сессии старше 7 дней без активных подключений
+- **FK cascade на InitiativeRoll:** Добавлен ondelete="CASCADE" для защиты от orphaned records при удалении игроков
+- **Индекс на sessions.created_at:** Ускоряет поиск старых сессий при cleanup
+
+### Changed
+- **GET /api/session/players:** Фильтрует только активных игроков (left_at == NULL)
+- **POST /api/session/join:** Поддерживает reconnect для игроков с left_at != NULL
+- **WebSocket disconnect:** Устанавливает left_at вместо удаления Player из БД
+- **Frontend:** Кнопка "Покинуть" заменена на "Завершить сессию" (только для GM)
+- **Frontend:** Обработчик session_deleted автоматически редиректит на dashboard при завершении сессии
+
+### Fixed
+- **InitiativeRoll FK без ondelete:** Теперь с CASCADE, предотвращает orphaned records
+- **Накопление игроков в БД:** Soft delete решает проблему, игроки помечаются как left
+- **Отсутствие очистки старых сессий:** Cleanup автоматически удаляет неактивные сессии старше 7 дней
+
+### Technical
+- **Migration:** Добавлен столбец `players.left_at DATETIME` (NULL = активен)
+- **Tests:** Добавлены тесты для soft delete, reconnect, delete session и cleanup (tests/integration/test_session_api.py, tests/unit/test_database.py)
+
+---
+
 2026-02-11: Улучшено UX управления картой на мобильных (10.1, 10.3)
   - **Индикатор масштаба (10.1):**
     - При изменении масштаба (pinch, wheel, кнопки zoom) показывается индикатор с процентами в центре экрана

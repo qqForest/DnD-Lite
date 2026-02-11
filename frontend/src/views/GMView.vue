@@ -1,5 +1,5 @@
 <template>
-  <GMLayout @leave="showLeaveModal = true">
+  <GMLayout @leave="showDeleteModal = true">
     <template #initiative-bar>
       <InitiativeBar />
     </template>
@@ -16,12 +16,12 @@
     />
 
     <ConfirmModal
-      v-model="showLeaveModal"
-      title="Покинуть сессию?"
-      message="Вы уверены, что хотите покинуть текущую сессию?"
-      confirm-text="Покинуть"
+      v-model="showDeleteModal"
+      title="Завершить сессию?"
+      message="Это отключит всех игроков и удалит сессию навсегда."
+      confirm-text="Завершить"
       :danger="true"
-      @confirm="handleLeave"
+      @confirm="handleDeleteSession"
     />
   </GMLayout>
 </template>
@@ -46,16 +46,21 @@ const charactersStore = useCharactersStore()
 const diceStore = useDiceStore()
 const combatStore = useCombatStore()
 
-const showLeaveModal = ref(false)
+const showDeleteModal = ref(false)
 const showResultModal = computed(() => diceStore.showResult)
 
 function closeResult() {
   diceStore.hideResult()
 }
 
-function handleLeave() {
-  sessionStore.clearSession()
-  router.push({ name: 'profile' })
+async function handleDeleteSession() {
+  try {
+    const { sessionApi } = await import('@/services/api')
+    await sessionApi.deleteSession()
+    // WebSocket handler will handle redirect
+  } catch (error) {
+    console.error('Failed to delete session:', error)
+  }
 }
 
 useWebSocket()

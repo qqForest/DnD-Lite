@@ -48,7 +48,7 @@ class InitiativeRoll(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     combat_id = Column(Integer, ForeignKey("combats.id"), nullable=False)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     roll = Column(Integer, nullable=False)
     rolled_at = Column(DateTime, default=datetime.utcnow)
 

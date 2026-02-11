@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -15,6 +15,7 @@ class Player(Base):
     is_gm = Column(Boolean, default=False)
     is_ready = Column(Boolean, default=False)
     can_move = Column(Boolean, default=False)
+    left_at = Column(DateTime, nullable=True)  # NULL = active, timestamp = left
 
     session = relationship("Session", back_populates="players")
     user = relationship("User")

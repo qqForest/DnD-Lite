@@ -44,6 +44,13 @@ def create_session(
     if data is None:
         data = SessionCreate()
 
+    # Cleanup old sessions
+    from app.database import cleanup_old_sessions
+    try:
+        cleanup_old_sessions(db, days=7)
+    except Exception as e:
+        logger.warning(f"Cleanup failed: {e}")
+
     # Generate unique room code
     while True:
         code = generate_room_code()
@@ -135,7 +142,32 @@ async def join_session(
     ).first()
 
     if existing_player:
-        raise HTTPException(status_code=400, detail="Player name already taken")
+        # Allow reconnect if player left
+        if existing_player.left_at is not None:
+            existing_player.left_at = None
+            existing_player.user_id = current_user.id if current_user else None
+            db.commit()
+            db.refresh(existing_player)
+
+            # Return existing player with new tokens
+            access_token = create_access_token(data={"sub": existing_player.token})
+            refresh_token = create_refresh_token(data={"sub": existing_player.token})
+
+            # Get existing character if any
+            character = db.query(Character).filter(
+                Character.player_id == existing_player.id
+            ).first()
+
+            return SessionJoinResponse(
+                player_id=existing_player.id,
+                token=existing_player.token,
+                session_code=session.code,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                character_id=character.id if character else None
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Player name already taken")
 
     player_token = str(uuid.uuid4())
     player = Player(
@@ -276,8 +308,11 @@ def get_session_players(
     current_player: Player = Depends(get_current_player),
     db: DBSession = Depends(get_db)
 ):
-    """Get all players in the session."""
-    players = db.query(Player).filter(Player.session_id == current_player.session_id).all()
+    """Get all active players (excluding left players)."""
+    players = db.query(Player).filter(
+        Player.session_id == current_player.session_id,
+        Player.left_at == None
+    ).all()
     return players
 
 
@@ -336,3 +371,47 @@ async def toggle_player_movement(
     )
 
     return {"player_id": target_player.id, "can_move": target_player.can_move}
+
+
+@router.delete("/session")
+async def delete_session(
+    current_player: Player = Depends(get_current_player),
+    db: DBSession = Depends(get_db)
+):
+    """Delete current session. GM only. Disconnects all players."""
+    if not current_player.is_gm:
+        raise HTTPException(status_code=403, detail="Only GM can delete session")
+
+    session = current_player.session
+    session_id = session.id
+    session_code = session.code
+
+    # Broadcast before deleting
+    from app.websocket.manager import manager
+    await manager.broadcast_event(
+        "session_deleted",
+        {"session_id": session_id, "message": "Session ended by GM"}
+    )
+
+    # Disconnect all players
+    async with manager._lock:
+        tokens_to_disconnect = []
+        for token, player_id in list(manager.token_to_player.items()):
+            player = db.query(Player).filter(Player.id == player_id).first()
+            if player and player.session_id == session_id:
+                tokens_to_disconnect.append(token)
+
+    for token in tokens_to_disconnect:
+        websocket = manager.active_connections.get(token)
+        if websocket:
+            try:
+                await websocket.close(code=4002, reason="Session deleted by GM")
+            except Exception as e:
+                logger.error(f"Error closing websocket: {e}")
+            await manager.disconnect(token)
+
+    # Delete session (cascade deletes all)
+    db.delete(session)
+    db.commit()
+
+    return {"message": "Session deleted", "session_code": session_code}

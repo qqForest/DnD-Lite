@@ -204,6 +204,14 @@ export const useSessionStore = defineStore('session', () => {
         player.can_move = data.can_move
       }
     })
+
+    wsService.on('session_deleted', (data: { session_id: number; message: string }) => {
+      // Clear session
+      clearSession()
+
+      // Redirect to home
+      router.push({ name: 'home' })
+    })
   }
 
   function connectWebSocket() {

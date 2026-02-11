@@ -30,6 +30,17 @@ Base.metadata.create_all(bind=engine)
 from app.migrations import run_migrations
 run_migrations()
 
+# Cleanup old sessions on startup
+try:
+    from app.database import get_db, cleanup_old_sessions
+    db = next(get_db())
+    try:
+        cleanup_old_sessions(db, days=7)
+    finally:
+        db.close()
+except Exception as e:
+    logger.warning(f"Startup cleanup failed: {e}")
+
 app = FastAPI(
     title="DnD Lite GM",
     description="Lightweight D&D Game Master assistant",
@@ -164,6 +175,21 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
             await heartbeat_task
         except asyncio.CancelledError:
             pass
+
+        # Mark player as left (soft delete)
+        db = next(get_db())
+        try:
+            player = db.query(Player).filter(Player.token == token).first()
+            if player:
+                from datetime import datetime
+                player.left_at = datetime.utcnow()
+                db.commit()
+                logger.info(f"WS Marked player {player_name} as left")
+        except Exception as e:
+            logger.error(f"WS Failed to mark player as left: {e}")
+        finally:
+            db.close()
+
         await manager.disconnect(token)
         await manager.broadcast_event(
             "player_left",

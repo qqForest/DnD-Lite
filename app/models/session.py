@@ -11,7 +11,7 @@ class Session(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(6), unique=True, index=True, nullable=False)
     gm_token = Column(String(36), unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     is_active = Column(Boolean, default=True)
     session_started = Column(Boolean, default=False)
 
