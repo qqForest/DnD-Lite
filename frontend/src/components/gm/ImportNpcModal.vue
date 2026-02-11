@@ -83,6 +83,9 @@ async function handleImport() {
       charisma: npc.charisma,
       max_hp: npc.max_hp,
       current_hp: npc.current_hp,
+      armor_class: npc.armor_class,
+      appearance: npc.appearance,
+      avatar_url: npc.avatar_url,
     })
     toast.success('NPC импортирован в сессию!')
     emit('imported')

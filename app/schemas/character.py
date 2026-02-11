@@ -16,6 +16,7 @@ class CharacterCreate(BaseModel):
     current_hp: Optional[int] = None
     armor_class: int = Field(default=10, ge=1, le=30)
     appearance: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class CharacterUpdate(BaseModel):
@@ -32,6 +33,7 @@ class CharacterUpdate(BaseModel):
     current_hp: Optional[int] = None
     armor_class: Optional[int] = Field(default=None, ge=1, le=30)
     appearance: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class CharacterResponse(BaseModel):

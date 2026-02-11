@@ -215,3 +215,29 @@ class TestDeleteCharacter:
         with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
             resp = await client.delete(f"/api/characters/{char_id}", headers=player_headers)
         assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+class TestCharacterAvatar:
+    async def test_avatar_url_preserved_on_create(self, client):
+        """Test that avatar_url is saved when creating a character."""
+        resp, _, _ = await create_session_with_user(client)
+        headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+        avatar_url = "/uploads/avatars/test-avatar.jpg"
+        appearance = "A brave warrior"
+        
+        with patch("app.websocket.manager.manager.broadcast_event", new_callable=AsyncMock):
+            resp = await client.post("/api/characters", json={
+                "name": "TestNPC",
+                "class_name": "Wizard",
+                "max_hp": 10,
+                "avatar_url": avatar_url,
+                "appearance": appearance,
+            }, headers=headers)
+        
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "TestNPC"
+        assert data["avatar_url"] == avatar_url
+        assert data["appearance"] == appearance
