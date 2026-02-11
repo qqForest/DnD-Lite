@@ -91,30 +91,6 @@ const router = createRouter({
       name: 'edit-map',
       component: () => import('@/views/EditMapView.vue'),
       meta: { requiresUser: true }
-    },
-    {
-      path: '/gm/lobby',
-      name: 'gm-lobby',
-      component: () => import('@/views/GMLobbyView.vue'),
-      meta: { requiresAuth: true, role: 'gm' }
-    },
-    {
-      path: '/gm',
-      name: 'gm',
-      component: () => import('@/views/GMView.vue'),
-      meta: { requiresAuth: true, role: 'gm' }
-    },
-    {
-      path: '/play/lobby',
-      name: 'player-lobby',
-      component: () => import('@/views/PlayerLobbyView.vue'),
-      meta: { requiresAuth: true, role: 'player' }
-    },
-    {
-      path: '/play',
-      name: 'player',
-      component: () => import('@/views/PlayerView.vue'),
-      meta: { requiresAuth: true, role: 'player' }
     }
   ]
 })
@@ -170,30 +146,34 @@ router.beforeEach(async (to, from, next) => {
 
     // Логика для GM
     if (to.meta.role === 'gm') {
+      const code = codeFromUrl || sessionStore.code
+
       // Если GM идет на /gm и сессия не начата - редирект на лобби
-      if (to.name === 'gm' && !sessionStore.sessionStarted) {
-        next({ name: 'gm-lobby' })
+      if (to.name === 'gm-with-code' && !sessionStore.sessionStarted) {
+        next({ name: 'gm-lobby-with-code', params: { code } })
         return
       }
 
       // Если GM идет на /gm/lobby и сессия уже начата - редирект на основной интерфейс
-      if (to.name === 'gm-lobby' && sessionStore.sessionStarted) {
-        next({ name: 'gm' })
+      if (to.name === 'gm-lobby-with-code' && sessionStore.sessionStarted) {
+        next({ name: 'gm-with-code', params: { code } })
         return
       }
     }
 
     // Логика для игроков
     if (to.meta.role === 'player') {
+      const code = codeFromUrl || sessionStore.code
+
       // Если игрок идет на /play и сессия не начата - редирект на лобби
-      if (to.name === 'player' && !sessionStore.sessionStarted) {
-        next({ name: 'player-lobby' })
+      if (to.name === 'player-with-code' && !sessionStore.sessionStarted) {
+        next({ name: 'player-lobby-with-code', params: { code } })
         return
       }
 
       // Если игрок идет на /play/lobby и сессия уже начата - редирект на основной интерфейс
-      if (to.name === 'player-lobby' && sessionStore.sessionStarted) {
-        next({ name: 'player' })
+      if (to.name === 'player-lobby-with-code' && sessionStore.sessionStarted) {
+        next({ name: 'player-with-code', params: { code } })
         return
       }
     }
@@ -201,12 +181,14 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.role === 'gm' && !sessionStore.isGm) {
     if (sessionStore.isAuthenticated) {
-      next({ name: 'player' })
+      const code = codeFromUrl || sessionStore.code
+      next({ name: 'player-with-code', params: { code } })
     } else {
       next({ name: 'dashboard' })
     }
   } else if (to.meta.role === 'player' && sessionStore.isGm) {
-    next({ name: 'gm' })
+    const code = codeFromUrl || sessionStore.code
+    next({ name: 'gm-with-code', params: { code } })
   } else {
     next()
   }

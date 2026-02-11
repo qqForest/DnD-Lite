@@ -29,12 +29,15 @@ const starting = ref(false)
 
 async function handleStartGame() {
   if (!sessionStore.token) return
-  
+
   starting.value = true
   try {
     await sessionStore.startSession()
     toast.success('Игра начата!')
-    router.push({ name: 'gm' })
+    router.push({
+      name: 'gm-with-code',
+      params: { code: sessionStore.code }
+    })
   } catch (error: any) {
     console.error('Failed to start session:', error)
     toast.error(error.response?.data?.detail || 'Не удалось начать игру')

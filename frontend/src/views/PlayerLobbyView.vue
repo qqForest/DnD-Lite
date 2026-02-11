@@ -135,13 +135,19 @@ onMounted(async () => {
   }
 
   if (sessionStore.isGm) {
-    router.push({ name: 'gm-lobby' })
+    router.push({
+      name: 'gm-lobby-with-code',
+      params: { code: sessionStore.code }
+    })
     return
   }
 
   await sessionStore.fetchSessionState()
   if (sessionStore.sessionStarted) {
-    router.push({ name: 'player' })
+    router.push({
+      name: 'player-with-code',
+      params: { code: sessionStore.code }
+    })
     return
   }
 
@@ -171,7 +177,10 @@ function setupWebSocketHandlers() {
     if (sessionStore.sessionState) {
       sessionStore.sessionState.session_started = true
     }
-    router.push({ name: 'player' })
+    router.push({
+      name: 'player-with-code',
+      params: { code: sessionStore.code }
+    })
   })
 }
 </script>

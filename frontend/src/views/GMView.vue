@@ -85,7 +85,10 @@ onMounted(async () => {
     
     // Если сессия не начата, редирект на лобби
     if (!sessionStore.sessionStarted) {
-      router.push({ name: 'gm-lobby' })
+      router.push({
+        name: 'gm-lobby-with-code',
+        params: { code: sessionStore.code }
+      })
       return
     }
     

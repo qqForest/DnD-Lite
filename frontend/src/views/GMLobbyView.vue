@@ -168,7 +168,10 @@ onMounted(async () => {
   // Если сессия уже начата, редирект на основной интерфейс
   await sessionStore.fetchSessionState()
   if (sessionStore.sessionStarted) {
-    router.push({ name: 'gm' })
+    router.push({
+      name: 'gm-with-code',
+      params: { code: sessionStore.code }
+    })
     return
   }
 
