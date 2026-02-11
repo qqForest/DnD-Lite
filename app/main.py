@@ -209,15 +209,22 @@ app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 # Mount static files from frontend/dist if it exists
 static_path = "frontend/dist"
+assets_path = os.path.join(static_path, "assets")
+
 if os.path.exists(static_path):
-    # Support assets
-    if os.path.exists(os.path.join(static_path, "assets")):
-        app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="static")
+    logger.info(f"Static path exists: {os.path.abspath(static_path)}")
+
+    # Mount assets directory
+    if os.path.exists(assets_path):
+        logger.info(f"Mounting /assets from: {os.path.abspath(assets_path)}")
+        app.mount("/assets", StaticFiles(directory=assets_path, html=False), name="assets")
+    else:
+        logger.warning(f"Assets directory not found: {os.path.abspath(assets_path)}")
 
     @app.exception_handler(StarletteHTTPException)
     async def spa_exception_handler(request: Request, exc: StarletteHTTPException):
-        # For API routes, return JSON errors as-is
-        if request.url.path.startswith("/api") or request.url.path.startswith("/ws"):
+        # For API routes and static assets, return errors as-is (don't fallback to SPA)
+        if request.url.path.startswith(("/api", "/ws", "/assets", "/uploads")):
             return JSONResponse(
                 status_code=exc.status_code,
                 content={"detail": exc.detail},
