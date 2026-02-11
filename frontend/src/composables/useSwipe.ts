@@ -20,11 +20,11 @@ export function useSwipe(options?: { threshold?: number }) {
     offsetX.value = 0
     directionLocked = null
     pointerId = e.pointerId
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    // НЕ захватываем pointer сразу, дождёмся движения
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (pointerId === null) return
+    if (pointerId === null || e.pointerId !== pointerId) return
 
     const dx = e.clientX - startX
     const dy = e.clientY - startY
@@ -34,6 +34,11 @@ export function useSwipe(options?: { threshold?: number }) {
       const absDy = Math.abs(dy)
       if (absDx < 10 && absDy < 10) return
       directionLocked = absDx > absDy ? 'horizontal' : 'vertical'
+
+      // Захватываем pointer только когда начался реальный свайп
+      if (directionLocked === 'horizontal') {
+        ;(e.currentTarget as HTMLElement)?.setPointerCapture(e.pointerId)
+      }
     }
 
     if (directionLocked === 'horizontal') {
@@ -43,14 +48,21 @@ export function useSwipe(options?: { threshold?: number }) {
     }
   }
 
-  function onPointerUp(_e: PointerEvent) {
-    if (pointerId === null) return
+  function onPointerUp(e: PointerEvent) {
+    if (pointerId === null || e.pointerId !== pointerId) return
 
     if (directionLocked === 'horizontal') {
       if (offsetX.value <= -threshold && onSwipeLeft) {
         onSwipeLeft()
       } else if (offsetX.value >= threshold && onSwipeRight) {
         onSwipeRight()
+      }
+
+      // Освобождаем pointer если захватывали
+      try {
+        ;(e.currentTarget as HTMLElement)?.releasePointerCapture(e.pointerId)
+      } catch {
+        // Игнорируем ошибки если capture не был установлен
       }
     }
 
@@ -60,7 +72,15 @@ export function useSwipe(options?: { threshold?: number }) {
     directionLocked = null
   }
 
-  function onPointerCancel(_e: PointerEvent) {
+  function onPointerCancel(e: PointerEvent) {
+    if (pointerId !== null && e.pointerId === pointerId) {
+      try {
+        ;(e.currentTarget as HTMLElement)?.releasePointerCapture(e.pointerId)
+      } catch {
+        // Игнорируем ошибки
+      }
+    }
+
     offsetX.value = 0
     isSwiping.value = false
     pointerId = null

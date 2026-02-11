@@ -46,7 +46,7 @@
             title="Редактировать"
             @click.stop="$emit('edit')"
           >
-            <Pencil :size="18" />
+            <Pencil :size="16" />
           </button>
           <button
             v-if="deletable"
@@ -54,7 +54,7 @@
             title="Удалить"
             @click.stop="$emit('delete')"
           >
-            <Trash2 :size="18" />
+            <Trash2 :size="16" />
           </button>
         </div>
 
@@ -70,12 +70,13 @@
           <div v-for="stat in stats" :key="stat.key" class="stat-cell">
             <span class="stat-label">{{ stat.label }}</span>
             <span class="stat-value">{{ (character as any)[stat.key] }}</span>
+            <span class="stat-modifier">{{ formatModifier(getModifier((character as any)[stat.key])) }}</span>
           </div>
         </div>
 
         <div class="hp-section">
           <div class="hp-header">
-            <Heart :size="16" class="hp-icon" />
+            <Heart :size="14" class="hp-icon" />
             <span class="hp-text">{{ character.current_hp }} / {{ character.max_hp }}</span>
           </div>
           <div class="hp-bar-track">
@@ -119,6 +120,14 @@ const stats = [
   { key: 'wisdom', label: 'МДР' },
   { key: 'charisma', label: 'ХАР' },
 ]
+
+function getModifier(score: number): number {
+  return Math.floor((score - 10) / 2)
+}
+
+function formatModifier(modifier: number): string {
+  return modifier >= 0 ? `+${modifier}` : `${modifier}`
+}
 </script>
 
 <style scoped>
@@ -214,8 +223,8 @@ const stats = [
 
 .npc-badge {
   position: absolute;
-  top: var(--spacing-3);
-  left: var(--spacing-3);
+  top: var(--spacing-2);
+  right: var(--spacing-2);
   font-size: var(--font-size-xs);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
@@ -256,21 +265,21 @@ const stats = [
   border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-4);
-  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  gap: var(--spacing-2);
 }
 
 .back-actions {
   display: flex;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: var(--radius-md);
   background: var(--alpha-overlay-medium, rgba(255, 255, 255, 0.1));
   color: var(--color-text-secondary);
@@ -294,24 +303,25 @@ const stats = [
 
 .back-name {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text-primary);
+  line-height: 1.2;
 }
 
 .back-subtitle {
   display: flex;
   justify-content: center;
-  gap: var(--spacing-2);
-  font-size: var(--font-size-sm);
+  gap: var(--spacing-1);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  margin-top: var(--spacing-1);
+  margin-top: 2px;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
   flex: 1;
   align-content: center;
 }
@@ -320,48 +330,58 @@ const stats = [
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-2);
+  padding: var(--spacing-1) 2px;
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
 }
 
 .stat-label {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 700;
   color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.stat-modifier {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-accent-primary, #c0a46c);
+  margin-top: 2px;
 }
 
 .hp-section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .hp-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .hp-icon {
   color: var(--color-danger, #ef4444);
+  width: 14px;
+  height: 14px;
 }
 
 .hp-text {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .hp-bar-track {
-  height: 6px;
+  height: 5px;
   background: var(--color-bg-primary);
   border-radius: var(--radius-full);
   overflow: hidden;
@@ -422,6 +442,11 @@ const stats = [
 
 .flip-card.compact .stat-value {
   font-size: var(--font-size-sm);
+}
+
+.flip-card.compact .stat-modifier {
+  font-size: 8px;
+  margin-top: 1px;
 }
 
 .flip-card.compact .hp-bar-track {

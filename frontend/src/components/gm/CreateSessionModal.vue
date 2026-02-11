@@ -3,37 +3,43 @@
     <div v-if="loading" class="loading">Загрузка карт...</div>
     <div v-else-if="maps.length === 0" class="empty">
       <p>У вас нет сохранённых карт в профиле.</p>
-      <p class="hint">Вы можете добавить карту позже в лобби сессии.</p>
+      <p class="hint">Создайте карту в профиле, чтобы начать сессию.</p>
     </div>
     <div v-else>
-      <p class="section-label">Выберите карту для сессии (необязательно):</p>
+      <p class="section-label">Выберите карту для сессии:</p>
       <div class="maps-grid">
         <div
           v-for="map in maps"
           :key="map.id"
           class="map-select-card"
           :class="{ selected: selectedMapId === map.id }"
-          @click="toggleMap(map.id)"
+          @click="selectMap(map.id)"
         >
-          <UserMapCard :map="map" />
+          <div class="map-preview">
+            <img v-if="map.background_url" :src="map.background_url" alt="" class="preview-img" />
+            <div v-else class="preview-placeholder">
+              <span class="preview-icon">🗺️</span>
+            </div>
+          </div>
+          <div class="map-info">
+            <span class="map-name">{{ map.name }}</span>
+            <span class="map-meta">{{ map.width }} × {{ map.height }}</span>
+          </div>
         </div>
       </div>
     </div>
     <template #footer>
       <div class="modal-actions">
-        <BaseButton variant="ghost" @click="$emit('update:modelValue', false)">
+        <BaseButton variant="ghost" size="lg" @click="$emit('update:modelValue', false)">
           Отмена
         </BaseButton>
         <BaseButton
-          v-if="maps.length > 0 && selectedMapId"
-          variant="secondary"
-          :disabled="creating"
-          @click="handleCreate()"
+          variant="primary"
+          size="lg"
+          :disabled="creating || !selectedMapId"
+          @click="handleCreate(selectedMapId!)"
         >
-          Без карты
-        </BaseButton>
-        <BaseButton variant="primary" :disabled="creating" @click="handleCreate(selectedMapId || undefined)">
-          {{ selectedMapId ? 'Создать с картой' : 'Создать сессию' }}
+          Создать сессию
         </BaseButton>
       </div>
     </template>
@@ -45,7 +51,6 @@ import { ref, computed, watch } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import UserMapCard from '@/components/profile/UserMapCard.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -73,11 +78,11 @@ watch(() => props.modelValue, async (open) => {
   }
 })
 
-function toggleMap(id: string) {
-  selectedMapId.value = selectedMapId.value === id ? null : id
+function selectMap(id: string) {
+  selectedMapId.value = id
 }
 
-function handleCreate(userMapId?: string) {
+function handleCreate(userMapId: string) {
   creating.value = true
   emit('create', userMapId)
 }
@@ -102,38 +107,93 @@ function handleCreate(userMapId?: string) {
 }
 
 .section-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--spacing-3) 0;
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-4) 0;
 }
 
 .maps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--spacing-3);
-  max-height: 400px;
+  max-height: 420px;
   overflow-y: auto;
+  padding: 2px;
 }
 
 .map-select-card {
   cursor: pointer;
   border-radius: var(--radius-lg);
-  border: 2px solid transparent;
-  transition: border-color 0.2s;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .map-select-card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent-primary, #c0a46c);
+  transform: translateY(-2px);
 }
 
 .map-select-card.selected {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary);
+  border-color: var(--color-accent-primary, #c0a46c);
+  box-shadow: 0 0 0 2px var(--color-accent-primary, #c0a46c);
+}
+
+.map-preview {
+  aspect-ratio: 16 / 9;
+  background: var(--color-bg-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-icon {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+.map-info {
+  padding: var(--spacing-2) var(--spacing-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-name {
+  font-family: var(--font-family-display);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-2);
+  gap: var(--spacing-3);
 }
 </style>

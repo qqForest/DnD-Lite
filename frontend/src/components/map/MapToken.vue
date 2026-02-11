@@ -4,7 +4,8 @@
       x: token.x,
       y: token.y,
       draggable: !isReadOnly,
-      id: token.id
+      id: token.id,
+      name: 'draggable-token'
     }"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
@@ -178,10 +179,14 @@ const label = computed(() => {
 })
 
 function onDragStart(e: any) {
+  // Prevent event from bubbling to stage (предотвращаем случайный stage drag)
+  e.cancelBubble = true
   e.target.moveToTop()
 }
 
 function onDragEnd(e: any) {
+  // Prevent event from bubbling to stage
+  e.cancelBubble = true
   emit('update', props.token.id, e.target.x(), e.target.y())
 }
 

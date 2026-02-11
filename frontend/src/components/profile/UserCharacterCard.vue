@@ -30,6 +30,7 @@
       <div class="stat" v-for="stat in stats" :key="stat.key">
         <span class="stat-label">{{ stat.label }}</span>
         <span class="stat-value">{{ (character as any)[stat.key] }}</span>
+        <span class="stat-modifier">{{ formatModifier(getModifier((character as any)[stat.key])) }}</span>
       </div>
     </div>
 
@@ -78,6 +79,14 @@ const stats = [
   { key: 'wisdom', label: 'МДР' },
   { key: 'charisma', label: 'ХАР' },
 ]
+
+function getModifier(score: number): number {
+  return Math.floor((score - 10) / 2)
+}
+
+function formatModifier(modifier: number): string {
+  return modifier >= 0 ? `+${modifier}` : `${modifier}`
+}
 </script>
 
 <style scoped>
@@ -198,6 +207,14 @@ const stats = [
   font-weight: 600;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.stat-modifier {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-accent-primary, #c0a46c);
+  margin-top: 2px;
 }
 
 .bottom-row {

@@ -271,8 +271,8 @@ const allStats = computed(() => {
   border: 1px solid var(--color-border, rgba(255,255,255,0.1));
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-4);
-  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  gap: var(--spacing-2);
 }
 
 .back-header {
@@ -281,21 +281,22 @@ const allStats = computed(() => {
 
 .back-name {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text-primary);
+  line-height: 1.2;
 }
 
 .back-subtitle {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  margin-top: var(--spacing-1);
+  margin-top: 2px;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
   flex: 1;
   align-content: center;
 }
@@ -313,28 +314,30 @@ const allStats = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-2);
+  padding: var(--spacing-1) 2px;
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
 }
 
 .stat-label {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 700;
   color: var(--color-text-primary);
+  line-height: 1;
 }
 
 .stat-mod {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   color: var(--color-text-muted);
+  margin-top: 2px;
 }
 
 .stat-mod.positive {
@@ -344,14 +347,14 @@ const allStats = computed(() => {
 .back-footer {
   display: flex;
   justify-content: center;
-  gap: var(--spacing-4);
+  gap: var(--spacing-2);
 }
 
 .footer-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-primary);
 }

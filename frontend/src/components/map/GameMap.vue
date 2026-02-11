@@ -64,6 +64,13 @@
       </v-layer>
     </v-stage>
 
+    <!-- Zoom Indicator (10.1) -->
+    <Transition name="fade">
+      <div v-if="showZoomIndicator" class="zoom-indicator">
+        {{ Math.round(stageConfig.scaleX * 100) }}%
+      </div>
+    </Transition>
+
     <!-- Controls Toolbar -->
     <div class="map-toolbar">
       <div class="toolbar-group">
@@ -140,6 +147,8 @@ import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
 import { mapsApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
+import { useThrottle } from '@/composables/useThrottle'
+import { useIsMobile } from '@/composables/useIsMobile'
 import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull, Save } from 'lucide-vue-next'
 import MapToken from './MapToken.vue'
 import AddTokenModal from './AddTokenModal.vue'
@@ -161,6 +170,7 @@ const mapStore = useMapStore()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
 const toast = useToast()
+const { isMobile } = useIsMobile()
 const container = ref<HTMLElement | null>(null)
 const stage = ref<any>(null)
 
@@ -172,6 +182,10 @@ const mapLoading = computed(() => props.editorMode ? false : mapStore.loading)
 const isGm = computed(() => props.editorMode || sessionStore.isGm)
 const selectedTokenId = ref<string | null>(null)
 const showAddTokenModal = ref(false)
+
+// Zoom indicator (10.1)
+const showZoomIndicator = ref(false)
+let zoomIndicatorTimeout: number | null = null
 
 // Context menu state
 const ctxMenu = reactive({ visible: false, x: 0, y: 0, tokenId: '' })
@@ -249,8 +263,16 @@ onUnmounted(() => {
 
   // Cleanup pinch events
   if (pinchContainer) {
-    pinchContainer.removeEventListener('touchmove', handlePinchMove)
+    pinchContainer.removeEventListener('touchstart', handlePinchStart)
+    pinchContainer.removeEventListener('touchmove', throttledPinchMove)
     pinchContainer.removeEventListener('touchend', handlePinchEnd)
+    pinchContainer.removeEventListener('touchcancel', handlePinchEnd)
+    cancelPinchThrottle()
+  }
+
+  // Cleanup zoom indicator timeout
+  if (zoomIndicatorTimeout) {
+    clearTimeout(zoomIndicatorTimeout)
   }
 })
 
@@ -276,13 +298,48 @@ const stageConfig = ref({
   scaleY: 1,
   x: 0,
   y: 0,
-  draggable: true
+  draggable: false  // Будет установлено через watch в зависимости от isMobile
+})
+
+// Условный stage drag: на мобильных отключен (только pinch навигация)
+watch(isMobile, (mobile) => {
+  stageConfig.value.draggable = !mobile
+}, { immediate: true })
+
+// Zoom indicator: показывать при изменении масштаба
+watch(() => stageConfig.value.scaleX, () => {
+  showZoomIndicator.value = true
+
+  if (zoomIndicatorTimeout) clearTimeout(zoomIndicatorTimeout)
+  zoomIndicatorTimeout = window.setTimeout(() => {
+    showZoomIndicator.value = false
+  }, 800)
 })
 
 // Pinch-to-zoom state
 let lastPinchDist = 0
 let lastPinchCenter: { x: number; y: number } | null = null
-let pinchStageRef: { x: number; y: number } | null = null
+
+// 10.3: Ограничение границ карты (предотвращение выхода в пустоту)
+function clampStagePosition() {
+  if (!displayMap.value) return
+
+  const mapWidth = displayMap.value.width
+  const mapHeight = displayMap.value.height
+  const viewportWidth = stageConfig.value.width
+  const viewportHeight = stageConfig.value.height
+  const scale = stageConfig.value.scaleX
+
+  // Вычисляем границы
+  // Минимум: stage.x не больше 0 (иначе видна левая/верхняя пустота)
+  // Максимум: карта не должна уходить за правый/нижний край viewport
+  const minX = Math.min(0, viewportWidth - mapWidth * scale)
+  const minY = Math.min(0, viewportHeight - mapHeight * scale)
+
+  // Clamp позицию
+  stageConfig.value.x = Math.max(minX, Math.min(0, stageConfig.value.x))
+  stageConfig.value.y = Math.max(minY, Math.min(0, stageConfig.value.y))
+}
 
 function getDistance(t1: Touch, t2: Touch): number {
   return Math.sqrt((t2.clientX - t1.clientX) ** 2 + (t2.clientY - t1.clientY) ** 2)
@@ -292,6 +349,32 @@ function getCenter(t1: Touch, t2: Touch): { x: number; y: number } {
   return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
 }
 
+function handlePinchStart(e: TouchEvent) {
+  if (e.touches.length !== 2) return
+  e.preventDefault()
+
+  const t1 = e.touches[0]
+  const t2 = e.touches[1]
+
+  lastPinchDist = getDistance(t1, t2)
+  lastPinchCenter = getCenter(t1, t2)
+
+  const stageNode = stage.value?.getStage()
+  if (stageNode) {
+    // Остановить stage drag
+    if (stageNode.isDragging()) {
+      stageNode.stopDrag()
+    }
+
+    // Остановить drag всех токенов при pinch
+    stageNode.find('.draggable-token').forEach((node: any) => {
+      if (node.isDragging()) {
+        node.stopDrag()
+      }
+    })
+  }
+}
+
 function handlePinchMove(e: TouchEvent) {
   if (e.touches.length !== 2) return
   e.preventDefault()
@@ -299,41 +382,44 @@ function handlePinchMove(e: TouchEvent) {
   const stageNode = stage.value?.getStage()
   if (!stageNode) return
 
-  // Stop stage drag during pinch
-  if (stageNode.isDragging()) {
-    stageNode.stopDrag()
-  }
-
   const t1 = e.touches[0]
   const t2 = e.touches[1]
   const newDist = getDistance(t1, t2)
   const newCenter = getCenter(t1, t2)
 
-  if (lastPinchDist > 0 && lastPinchCenter) {
-    const oldScale = stageConfig.value.scaleX
-    let newScale = oldScale * (newDist / lastPinchDist)
-    newScale = Math.max(0.1, Math.min(newScale, 5))
-
-    // Zoom towards pinch center
-    const containerRect = stageNode.container().getBoundingClientRect()
-    const pointerX = newCenter.x - containerRect.left
-    const pointerY = newCenter.y - containerRect.top
-
-    const mousePointTo = {
-      x: (pointerX - stageConfig.value.x) / oldScale,
-      y: (pointerY - stageConfig.value.y) / oldScale,
-    }
-
-    stageConfig.value.scaleX = newScale
-    stageConfig.value.scaleY = newScale
-
-    // Pan with center movement
-    const dx = newCenter.x - lastPinchCenter.x
-    const dy = newCenter.y - lastPinchCenter.y
-
-    stageConfig.value.x = pointerX - mousePointTo.x * newScale + dx
-    stageConfig.value.y = pointerY - mousePointTo.y * newScale + dy
+  // Skip first frame if not initialized
+  if (lastPinchDist === 0 || !lastPinchCenter) {
+    lastPinchDist = newDist
+    lastPinchCenter = newCenter
+    return
   }
+
+  const oldScale = stageConfig.value.scaleX
+  const scaleChange = newDist / lastPinchDist
+  let newScale = oldScale * scaleChange
+  newScale = Math.max(0.1, Math.min(newScale, 5))
+
+  // Get pinch center in container coordinates
+  const containerRect = stageNode.container().getBoundingClientRect()
+  const pointerX = lastPinchCenter.x - containerRect.left
+  const pointerY = lastPinchCenter.y - containerRect.top
+
+  // Calculate point in stage coordinates BEFORE zoom
+  const mousePointTo = {
+    x: (pointerX - stageConfig.value.x) / oldScale,
+    y: (pointerY - stageConfig.value.y) / oldScale,
+  }
+
+  // Apply new scale
+  stageConfig.value.scaleX = newScale
+  stageConfig.value.scaleY = newScale
+
+  // Calculate new stage position (same math as handleWheel)
+  stageConfig.value.x = pointerX - mousePointTo.x * newScale
+  stageConfig.value.y = pointerY - mousePointTo.y * newScale
+
+  // Ограничить позицию (10.3)
+  clampStagePosition()
 
   lastPinchDist = newDist
   lastPinchCenter = newCenter
@@ -342,8 +428,10 @@ function handlePinchMove(e: TouchEvent) {
 function handlePinchEnd() {
   lastPinchDist = 0
   lastPinchCenter = null
-  pinchStageRef = null
 }
+
+// Create throttled version of pinch move
+const { throttled: throttledPinchMove, cancel: cancelPinchThrottle } = useThrottle(handlePinchMove)
 
 // Resize observer to update stage dimensions
 let pinchContainer: HTMLElement | null = null
@@ -370,8 +458,19 @@ onMounted(() => {
     const stageNode = stage.value?.getStage()
     if (stageNode) {
       pinchContainer = stageNode.container()
-      pinchContainer!.addEventListener('touchmove', handlePinchMove, { passive: false })
-      pinchContainer!.addEventListener('touchend', handlePinchEnd)
+      pinchContainer!.addEventListener('touchstart', handlePinchStart, { passive: false })
+      pinchContainer!.addEventListener('touchmove', throttledPinchMove, { passive: false })
+      pinchContainer!.addEventListener('touchend', handlePinchEnd, { passive: false })
+      pinchContainer!.addEventListener('touchcancel', handlePinchEnd, { passive: false })
+
+      // Блокировать native iOS жесты (double-tap zoom, bounce scroll)
+      const preventNativeTouch = (e: TouchEvent) => {
+        // Блокируем только если касание canvas, не UI элементов
+        if (e.target === pinchContainer || pinchContainer!.contains(e.target as Node)) {
+          e.preventDefault()
+        }
+      }
+      pinchContainer!.addEventListener('touchstart', preventNativeTouch, { passive: false })
     }
   }, 100)
 })
@@ -439,6 +538,9 @@ function handleWheel(e: any) {
 
   stageConfig.value.x = newPos.x
   stageConfig.value.y = newPos.y
+
+  // Ограничить позицию (10.3)
+  clampStagePosition()
 }
 
 function handleStageContextMenu(e: any) {
@@ -451,7 +553,8 @@ function handleDragStart() {
 }
 
 function handleDragEnd() {
-  // Stage drag end
+  // Stage drag end - ограничить позицию (10.3)
+  clampStagePosition()
 }
 
 // Per-token read-only logic
@@ -508,16 +611,48 @@ function fitToScreen() {
     stageConfig.value.scaleY = scale
     stageConfig.value.x = (container.value.clientWidth - mapW * scale) / 2
     stageConfig.value.y = (container.value.clientHeight - mapH * scale) / 2
+
+    // Ограничить позицию (10.3)
+    clampStagePosition()
+}
+
+function zoomToPoint(scaleChange: number) {
+  if (!container.value) return
+
+  const oldScale = stageConfig.value.scaleX
+  let newScale = oldScale * scaleChange
+  newScale = Math.max(0.1, Math.min(newScale, 5))
+
+  // Get viewport center
+  const viewW = stageConfig.value.width
+  const viewH = stageConfig.value.height
+  const centerX = viewW / 2
+  const centerY = viewH / 2
+
+  // Calculate point in stage coordinates BEFORE zoom
+  const mousePointTo = {
+    x: (centerX - stageConfig.value.x) / oldScale,
+    y: (centerY - stageConfig.value.y) / oldScale,
+  }
+
+  // Apply new scale
+  stageConfig.value.scaleX = newScale
+  stageConfig.value.scaleY = newScale
+
+  // Calculate new position to keep center fixed
+  stageConfig.value.x = centerX - mousePointTo.x * newScale
+  stageConfig.value.y = centerY - mousePointTo.y * newScale
+
+  // Ограничить позицию (10.3)
+  clampStagePosition()
 }
 
 function zoomIn() {
-    stageConfig.value.scaleX *= 1.2
-    stageConfig.value.scaleY *= 1.2
+  zoomToPoint(1.2)
 }
 
 function zoomOut() {
-    stageConfig.value.scaleX /= 1.2
-    stageConfig.value.scaleY /= 1.2
+  zoomToPoint(1 / 1.2)
 }
 
 // Map creation (keep for no-map state)
@@ -580,6 +715,7 @@ async function saveToLibrary() {
   position: relative;
   background: var(--color-bg-tertiary, #0f0f1a);
   overflow: hidden;
+  touch-action: none;  /* Полный контроль над touch жестами */
 }
 
 .no-map, .loading {
@@ -649,6 +785,32 @@ async function saveToLibrary() {
 .toolbar-btn--accent:hover {
   background: rgba(233, 69, 96, 0.15);
   color: var(--color-accent-primary, #e94560);
+}
+
+/* Zoom Indicator (10.1) */
+.zoom-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 12px 24px;
+  border-radius: var(--radius-lg, 12px);
+  font-size: 24px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Fade transition для индикатора */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>
 

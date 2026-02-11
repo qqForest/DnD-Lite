@@ -58,8 +58,8 @@
 
         <section class="section">
           <h2 class="section-title">NPC</h2>
-          <div class="cards-grid">
-            <UserCharacterCard
+          <div class="npc-grid">
+            <CharacterFlipCard
               v-for="npc in profileStore.npcCharacters"
               :key="npc.id"
               :character="npc"
@@ -74,9 +74,17 @@
 
         <section class="section">
           <h2 class="section-title">Создать сессию</h2>
-          <BaseButton variant="primary" :disabled="creatingSession" @click="showCreateModal = true">
-            Создать сессию
-          </BaseButton>
+          <div class="section-action">
+            <BaseButton
+              variant="primary"
+              size="lg"
+              class="full-width-btn"
+              :disabled="creatingSession"
+              @click="showCreateModal = true"
+            >
+              Создать сессию
+            </BaseButton>
+          </div>
         </section>
       </template>
     </div>
@@ -115,7 +123,7 @@ import { useToast } from '@/composables/useToast'
 import { userMapsApi } from '@/services/api'
 import BaseButton from '@/components/common/BaseButton.vue'
 import AddCard from '@/components/profile/AddCard.vue'
-import UserCharacterCard from '@/components/profile/UserCharacterCard.vue'
+import CharacterFlipCard from '@/components/profile/CharacterFlipCard.vue'
 import UserMapCard from '@/components/profile/UserMapCard.vue'
 import CharacterCarousel from '@/components/profile/CharacterCarousel.vue'
 import ProfileTopBar from '@/components/profile/ProfileTopBar.vue'
@@ -257,14 +265,34 @@ onMounted(() => {
   gap: var(--spacing-4);
 }
 
+.npc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+}
+
+@media (min-width: 1200px) {
+  .npc-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .npc-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 480px) {
   .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .npc-grid {
     grid-template-columns: 1fr;
   }
 }
