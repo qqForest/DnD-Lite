@@ -9,11 +9,18 @@
       <!-- Mode Tabs -->
       <div v-if="!hideCharacterTab" class="mode-tabs">
         <button
-          :class="['mode-tab', { active: mode === 'character' }]"
-          @click="mode = 'character'"
+          :class="['mode-tab', { active: mode === 'players' }]"
+          @click="mode = 'players'"
         >
           <UserCircle :size="16" />
-          Персонаж
+          Персонажи
+        </button>
+        <button
+          :class="['mode-tab', { active: mode === 'npcs' }]"
+          @click="mode = 'npcs'"
+        >
+          <UserCircle :size="16" />
+          NPC
         </button>
         <button
           :class="['mode-tab', { active: mode === 'custom' }]"
@@ -24,13 +31,13 @@
         </button>
       </div>
 
-      <!-- Character Mode -->
-      <div v-if="mode === 'character' && !hideCharacterTab" class="character-list">
-        <div v-if="sessionCharacters.length === 0" class="empty-state">
-          Нет персонажей в сессии
+      <!-- Players Mode -->
+      <div v-if="mode === 'players' && !hideCharacterTab" class="character-list">
+        <div v-if="playerCharacters.length === 0" class="empty-state">
+          Нет персонажей игроков в сессии
         </div>
         <div
-          v-for="char in sessionCharacters"
+          v-for="char in playerCharacters"
           :key="char.id"
           :class="['character-item', {
             selected: selectedCharacterId === char.id,
@@ -44,6 +51,35 @@
             <div class="character-details">
               <span v-if="char.class_name">{{ char.class_name }} {{ char.level }}</span>
               <span class="character-player">{{ getPlayerName(char.player_id) }}</span>
+            </div>
+          </div>
+          <span v-if="placedCharacterIds.has(char.id)" class="placed-badge">На карте</span>
+          <Check v-else-if="selectedCharacterId === char.id" :size="18" class="check-icon" />
+        </div>
+      </div>
+
+      <!-- NPCs Mode -->
+      <div v-if="mode === 'npcs' && !hideCharacterTab" class="character-list">
+        <div v-if="npcCharacters.length === 0" class="empty-state">
+          Нет NPC в сессии
+        </div>
+        <div
+          v-for="char in npcCharacters"
+          :key="char.id"
+          :class="['character-item', 'is-npc', {
+            selected: selectedCharacterId === char.id,
+            placed: placedCharacterIds.has(char.id)
+          }]"
+          @click="selectCharacter(char)"
+        >
+          <div class="character-color" :style="{ background: getCharacterColor(char) }"></div>
+          <div class="character-info">
+            <div class="character-name">
+              {{ char.name }}
+              <span class="npc-badge">NPC</span>
+            </div>
+            <div class="character-details">
+              <span v-if="char.class_name">{{ char.class_name }} {{ char.level }}</span>
             </div>
           </div>
           <span v-if="placedCharacterIds.has(char.id)" class="placed-badge">На карте</span>
@@ -194,7 +230,7 @@ const charactersStore = useCharactersStore()
 const sessionStore = useSessionStore()
 const mapStore = useMapStore()
 
-const mode = ref<'character' | 'custom'>(props.hideCharacterTab ? 'custom' : 'character')
+const mode = ref<'players' | 'npcs' | 'custom'>(props.hideCharacterTab ? 'custom' : 'players')
 const customSubMode = ref<'templates' | 'manual'>('templates')
 const selectedCharacterId = ref<number | null>(null)
 const selectedTemplateKey = ref<string | null>(null)
@@ -203,10 +239,17 @@ const customColor = ref(COLOR_PALETTE[0])
 const customType = ref<'monster' | 'prop'>('monster')
 const selectedIconKey = ref<string | null>(null)
 
-const sessionCharacters = computed(() => {
+const playerCharacters = computed(() => {
   return charactersStore.characters.filter(c => {
     const player = sessionStore.players.find(p => p.id === c.player_id)
     return player && !player.is_gm
+  })
+})
+
+const npcCharacters = computed(() => {
+  return charactersStore.characters.filter(c => {
+    const player = sessionStore.players.find(p => p.id === c.player_id)
+    return player?.is_gm
   })
 })
 
@@ -223,7 +266,7 @@ const placedCharacterIds = computed(() => {
 })
 
 const canAdd = computed(() => {
-  if (mode.value === 'character') {
+  if (mode.value === 'players' || mode.value === 'npcs') {
     return selectedCharacterId.value !== null
   }
   if (customSubMode.value === 'templates') {
@@ -265,7 +308,7 @@ function selectTemplate(template: TokenTemplate) {
 function handleAdd() {
   if (!canAdd.value) return
 
-  if (mode.value === 'character' && selectedCharacterId.value !== null) {
+  if ((mode.value === 'players' || mode.value === 'npcs') && selectedCharacterId.value !== null) {
     const char = charactersStore.characters.find(c => c.id === selectedCharacterId.value)
     if (!char) return
 
@@ -305,7 +348,7 @@ function handleAdd() {
 }
 
 function reset() {
-  mode.value = props.hideCharacterTab ? 'custom' : 'character'
+  mode.value = props.hideCharacterTab ? 'custom' : 'players'
   customSubMode.value = 'templates'
   selectedCharacterId.value = null
   selectedTemplateKey.value = null
@@ -392,6 +435,10 @@ function close() {
   cursor: not-allowed;
 }
 
+.character-item.is-npc {
+  border-left: 3px solid var(--color-danger);
+}
+
 .character-color {
   width: 12px;
   height: 12px;
@@ -407,6 +454,18 @@ function close() {
 .character-name {
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.npc-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  background: var(--color-danger);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
 }
 
 .character-details {

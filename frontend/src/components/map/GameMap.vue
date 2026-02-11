@@ -109,6 +109,14 @@
             <span>Удалить</span>
           </button>
           <button
+            v-if="ctxMenuToken?.type === 'character' && isNpcToken(ctxMenuToken) && combatStore.isActive"
+            class="ctx-menu-item"
+            @click="addNpcToCombat"
+          >
+            <Swords :size="16" />
+            <span>Добавить в бой</span>
+          </button>
+          <button
             v-if="ctxMenuToken?.type === 'monster'"
             class="ctx-menu-item ctx-menu-item--danger"
             @click="confirmAction('kill')"
@@ -145,11 +153,12 @@ import type { MapToken as MapTokenType, MapTokenCreate, GameMap as GameMapType }
 import { useMapStore } from '@/stores/map'
 import { useSessionStore } from '@/stores/session'
 import { useCharactersStore } from '@/stores/characters'
+import { useCombatStore } from '@/stores/combat'
 import { mapsApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
 import { useThrottle } from '@/composables/useThrottle'
 import { useIsMobile } from '@/composables/useIsMobile'
-import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull, Save } from 'lucide-vue-next'
+import { Maximize2, ZoomIn, ZoomOut, Plus, Trash2, Skull, Save, Swords } from 'lucide-vue-next'
 import MapToken from './MapToken.vue'
 import AddTokenModal from './AddTokenModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -169,6 +178,7 @@ const emit = defineEmits<{
 const mapStore = useMapStore()
 const sessionStore = useSessionStore()
 const charactersStore = useCharactersStore()
+const combatStore = useCombatStore()
 const toast = useToast()
 const { isMobile } = useIsMobile()
 const container = ref<HTMLElement | null>(null)
@@ -244,6 +254,27 @@ async function executeConfirmedAction() {
   pendingAction.value = null
 }
 
+function isNpcToken(token: MapTokenType): boolean {
+  if (!token.character_id) return false
+  const character = charactersStore.characters.find(c => c.id === token.character_id)
+  if (!character) return false
+  const player = sessionStore.players.find(p => p.id === character.player_id)
+  return player?.is_gm ?? false
+}
+
+async function addNpcToCombat() {
+  if (!ctxMenuToken.value?.character_id) return
+  closeCtxMenu()
+
+  try {
+    await combatStore.rollInitiativeForNpc(ctxMenuToken.value.character_id)
+    toast.success('NPC добавлен в бой')
+  } catch (error) {
+    console.error('Failed to add NPC to combat:', error)
+    toast.error('Не удалось добавить NPC в бой')
+  }
+}
+
 function onGlobalClick() {
   if (ctxMenu.visible) closeCtxMenu()
 }
@@ -298,13 +329,8 @@ const stageConfig = ref({
   scaleY: 1,
   x: 0,
   y: 0,
-  draggable: false  // Будет установлено через watch в зависимости от isMobile
+  draggable: true  // Работает на всех устройствах (cancelBubble в токенах предотвращает конфликт)
 })
-
-// Условный stage drag: на мобильных отключен (только pinch навигация)
-watch(isMobile, (mobile) => {
-  stageConfig.value.draggable = !mobile
-}, { immediate: true })
 
 // Zoom indicator: показывать при изменении масштаба
 watch(() => stageConfig.value.scaleX, () => {
@@ -330,15 +356,22 @@ function clampStagePosition() {
   const viewportHeight = stageConfig.value.height
   const scale = stageConfig.value.scaleX
 
-  // Вычисляем границы
-  // Минимум: stage.x не больше 0 (иначе видна левая/верхняя пустота)
-  // Максимум: карта не должна уходить за правый/нижний край viewport
-  const minX = Math.min(0, viewportWidth - mapWidth * scale)
-  const minY = Math.min(0, viewportHeight - mapHeight * scale)
+  const scaledMapWidth = mapWidth * scale
+  const scaledMapHeight = mapHeight * scale
+
+  // Вычисляем границы для x
+  // Если карта больше viewport: minX отрицательный, maxX = 0
+  // Если карта меньше viewport: minX = 0, maxX положительный
+  const minX = Math.min(viewportWidth - scaledMapWidth, 0)
+  const maxX = Math.max(viewportWidth - scaledMapWidth, 0)
+
+  // Вычисляем границы для y
+  const minY = Math.min(viewportHeight - scaledMapHeight, 0)
+  const maxY = Math.max(viewportHeight - scaledMapHeight, 0)
 
   // Clamp позицию
-  stageConfig.value.x = Math.max(minX, Math.min(0, stageConfig.value.x))
-  stageConfig.value.y = Math.max(minY, Math.min(0, stageConfig.value.y))
+  stageConfig.value.x = Math.max(minX, Math.min(maxX, stageConfig.value.x))
+  stageConfig.value.y = Math.max(minY, Math.min(maxY, stageConfig.value.y))
 }
 
 function getDistance(t1: Touch, t2: Touch): number {
