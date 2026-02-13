@@ -188,6 +188,7 @@ function setupWebSocketHandlers() {
 <style scoped>
 .player-lobby-view {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-primary);
   display: flex;
   flex-direction: column;

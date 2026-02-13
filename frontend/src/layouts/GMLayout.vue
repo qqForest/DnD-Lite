@@ -39,6 +39,7 @@ import BottomBar from '@/components/gm/BottomBar.vue'
   grid-template-columns: var(--panel-width-md) 1fr;
   grid-template-rows: var(--panel-height-top) auto 1fr var(--panel-height-bottom);
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 

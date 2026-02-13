@@ -91,6 +91,7 @@ async function handleDeleteToken(tokenId: string) {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background: var(--color-bg-primary);
 }
 
