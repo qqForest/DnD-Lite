@@ -298,6 +298,7 @@ onUnmounted(() => {
     pinchContainer.removeEventListener('touchmove', throttledPinchMove)
     pinchContainer.removeEventListener('touchend', handlePinchEnd)
     pinchContainer.removeEventListener('touchcancel', handlePinchEnd)
+    pinchContainer.removeEventListener('touchstart', preventNativeTouch)
     cancelPinchThrottle()
   }
 
@@ -345,6 +346,7 @@ watch(() => stageConfig.value.scaleX, () => {
 // Pinch-to-zoom state
 let lastPinchDist = 0
 let lastPinchCenter: { x: number; y: number } | null = null
+let isPinching = false
 
 // 10.3: Ограничение границ карты (предотвращение выхода в пустоту)
 function clampStagePosition() {
@@ -391,10 +393,12 @@ function handlePinchStart(e: TouchEvent) {
 
   lastPinchDist = getDistance(t1, t2)
   lastPinchCenter = getCenter(t1, t2)
+  isPinching = true
 
   const stageNode = stage.value?.getStage()
   if (stageNode) {
-    // Остановить stage drag
+    // Отключить stage drag на время pinch, чтобы Konva не двигал карту параллельно
+    stageConfig.value.draggable = false
     if (stageNode.isDragging()) {
       stageNode.stopDrag()
     }
@@ -432,22 +436,22 @@ function handlePinchMove(e: TouchEvent) {
   let newScale = oldScale * scaleChange
   newScale = Math.max(0.1, Math.min(newScale, 5))
 
-  // Get pinch center in container coordinates
+  // Текущий центр пальцев в координатах контейнера
   const containerRect = stageNode.container().getBoundingClientRect()
-  const pointerX = lastPinchCenter.x - containerRect.left
-  const pointerY = lastPinchCenter.y - containerRect.top
+  const pointerX = newCenter.x - containerRect.left
+  const pointerY = newCenter.y - containerRect.top
 
-  // Calculate point in stage coordinates BEFORE zoom
+  // Точка под текущим центром пальцев в координатах stage (ДО зума)
   const mousePointTo = {
     x: (pointerX - stageConfig.value.x) / oldScale,
     y: (pointerY - stageConfig.value.y) / oldScale,
   }
 
-  // Apply new scale
+  // Применить новый масштаб
   stageConfig.value.scaleX = newScale
   stageConfig.value.scaleY = newScale
 
-  // Calculate new stage position (same math as handleWheel)
+  // Позиция stage: точка под пальцами остаётся на месте + pan за движением пальцев
   stageConfig.value.x = pointerX - mousePointTo.x * newScale
   stageConfig.value.y = pointerY - mousePointTo.y * newScale
 
@@ -458,13 +462,26 @@ function handlePinchMove(e: TouchEvent) {
   lastPinchCenter = newCenter
 }
 
-function handlePinchEnd() {
+function handlePinchEnd(e: TouchEvent) {
+  // Возвращаем drag только когда ВСЕ пальцы убраны,
+  // чтобы оставшийся палец не начал drag с рывком
+  if (isPinching && e.touches.length === 0) {
+    isPinching = false
+    stageConfig.value.draggable = true
+  }
   lastPinchDist = 0
   lastPinchCenter = null
 }
 
 // Create throttled version of pinch move
 const { throttled: throttledPinchMove, cancel: cancelPinchThrottle } = useThrottle(handlePinchMove)
+
+// Блокировать native iOS жесты (double-tap zoom, bounce scroll)
+function preventNativeTouch(e: TouchEvent) {
+  if (e.target === pinchContainer || pinchContainer?.contains(e.target as Node)) {
+    e.preventDefault()
+  }
+}
 
 // Resize observer to update stage dimensions
 let pinchContainer: HTMLElement | null = null
@@ -497,12 +514,6 @@ onMounted(() => {
       pinchContainer!.addEventListener('touchcancel', handlePinchEnd, { passive: false })
 
       // Блокировать native iOS жесты (double-tap zoom, bounce scroll)
-      const preventNativeTouch = (e: TouchEvent) => {
-        // Блокируем только если касание canvas, не UI элементов
-        if (e.target === pinchContainer || pinchContainer!.contains(e.target as Node)) {
-          e.preventDefault()
-        }
-      }
       pinchContainer!.addEventListener('touchstart', preventNativeTouch, { passive: false })
     }
   }, 100)

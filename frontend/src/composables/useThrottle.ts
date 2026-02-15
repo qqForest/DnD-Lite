@@ -6,12 +6,15 @@ import { ref } from 'vue'
  */
 export function useThrottle<T extends (...args: any[]) => void>(callback: T) {
   const rafId = ref<number | null>(null)
+  let latestArgs: Parameters<T> | null = null
 
   function throttled(...args: Parameters<T>) {
+    latestArgs = args
     if (rafId.value !== null) return
 
     rafId.value = requestAnimationFrame(() => {
-      callback(...args)
+      if (latestArgs) callback(...latestArgs)
+      latestArgs = null
       rafId.value = null
     })
   }
