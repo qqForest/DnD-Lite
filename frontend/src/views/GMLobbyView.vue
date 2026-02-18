@@ -197,6 +197,7 @@ diceStore.setupWebSocketHandlers()
 <style scoped>
 .gm-lobby-view {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-primary);
 }
 

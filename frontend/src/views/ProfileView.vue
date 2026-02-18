@@ -229,6 +229,7 @@ onMounted(() => {
 <style scoped>
 .profile-view {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-primary);
 }
 

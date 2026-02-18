@@ -127,6 +127,7 @@ onMounted(() => {
 <style scoped>
 .join-view {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--spacing-6);
   background: var(--color-bg-primary);
   display: flex;
@@ -238,6 +239,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   gap: var(--spacing-4);
 }
 
